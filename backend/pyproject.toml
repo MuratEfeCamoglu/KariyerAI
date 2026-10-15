@@ -1,0 +1,45 @@
+[project]
+name = "kariyerai-backend"
+version = "0.1.0"
+description = "KariyerAI REST API"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi[standard]",
+    "sqlalchemy>=2.0",
+    "alembic",
+    "pydantic-settings",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "RUF"]
+# Türkçe metin ve yorumlar zorunlu (CLAUDE.md); "ı" gibi harfler belirsiz karakter sayılmamalı.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+# Yerel alembic/ klasörü, alembic paketini yanlışlıkla first-party gösteriyor.
+known-first-party = ["app"]
+known-third-party = ["alembic"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,24 @@
+# Ortam / gizli bilgiler
+.env
+.env.*
+!.env.example
+
+# Backend
+backend/data/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Editör / işletim sistemi
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

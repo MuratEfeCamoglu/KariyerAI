@@ -1,0 +1,2 @@
+# Windows klonunda CRLF dönüşümü prettier/ruff format kontrollerini bozmasın.
+* text=auto eol=lf

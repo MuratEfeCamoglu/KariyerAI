@@ -1,0 +1,5 @@
+dist
+node_modules
+package-lock.json
+# docs/TASARIM.md §1 bloğu birebir korunur
+src/index.css
