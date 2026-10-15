@@ -1,16 +1,88 @@
-import { render, screen } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { routes } from "../router.tsx";
+import { jsonResponse, mockApi, recruiterUser, renderRoute } from "./testUtils.tsx";
 
-describe("router", () => {
-  it("bilinmeyen yolu giriş sayfasına yönlendirir", async () => {
-    const router = createMemoryRouter(routes, { initialEntries: ["/"] });
+function fillAndSubmit(email: string, password: string) {
+  fireEvent.change(screen.getByLabelText("E-posta"), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText("Şifre"), { target: { value: password } });
+  fireEvent.click(screen.getByRole("button", { name: "Giriş yap" }));
+}
 
-    render(<RouterProvider router={router} />);
+describe("LoginPage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
-    expect(await screen.findByRole("heading", { name: "KariyerAI" })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/login");
+  it("başarılı girişte ilanlar sayfasına yönlendirir", async () => {
+    let loggedIn = false;
+    const fetchMock = mockApi((method, path) => {
+      if (path === "/auth/me") {
+        return loggedIn ? jsonResponse(200, recruiterUser) : jsonResponse(401, { detail: "x" });
+      }
+      if (method === "POST" && path === "/auth/login") {
+        loggedIn = true;
+        return jsonResponse(200, recruiterUser);
+      }
+      return undefined;
+    });
+    const router = renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    fillAndSubmit("ik@example.com", "dogru-sifre-123");
+
+    expect(await screen.findByRole("heading", { name: "İlanlar" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/jobs");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/login",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ email: "ik@example.com", password: "dogru-sifre-123" }),
+      }),
+    );
+  });
+
+  it("yanlış şifrede genel hata mesajını gösterir", async () => {
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "Oturum açmanız gerekiyor" });
+      if (method === "POST" && path === "/auth/login") {
+        return jsonResponse(401, { detail: "E-posta veya şifre hatalı" });
+      }
+      return undefined;
+    });
+    renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    fillAndSubmit("ik@example.com", "yanlis-sifre-1");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("E-posta veya şifre hatalı");
+  });
+
+  it("çok fazla denemede sunucunun 429 mesajını gösterir", async () => {
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "x" });
+      if (method === "POST" && path === "/auth/login") {
+        return jsonResponse(429, { detail: "Çok fazla başarısız giriş denemesi." });
+      }
+      return undefined;
+    });
+    renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    fillAndSubmit("ik@example.com", "yanlis-sifre-1");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Çok fazla başarısız");
+  });
+
+  it("şifre sıfırlama bağlantısı yerine yöneticiye yönlendirir", async () => {
+    mockApi((_method, path) =>
+      path === "/auth/me" ? jsonResponse(401, { detail: "x" }) : undefined,
+    );
+    renderRoute("/login");
+
+    expect(await screen.findByText(/Yöneticinize başvurun/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /şifre/i })).not.toBeInTheDocument();
+    });
   });
 });
