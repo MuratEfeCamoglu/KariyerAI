@@ -119,8 +119,14 @@ def evaluate_case(case: EvalCase, llm: LLMClient) -> CaseResult:
     return result
 
 
-def run(llm: LLMClient, cases: Sequence[EvalCase]) -> EvalReport:
-    return EvalReport(cases=[evaluate_case(case, llm) for case in cases])
+def run(llm: LLMClient, cases: Sequence[EvalCase], delay_seconds: float = 0.0) -> EvalReport:
+    results: list[CaseResult] = []
+    for index, case in enumerate(cases):
+        if index and delay_seconds:
+            # Ücretsiz katmanların dakikalık istek sınırına (429) takılmamak için.
+            time.sleep(delay_seconds)
+        results.append(evaluate_case(case, llm))
+    return EvalReport(cases=results)
 
 
 def format_report(report: EvalReport, model: str) -> str:
@@ -142,10 +148,21 @@ def format_report(report: EvalReport, model: str) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evals.run", description=__doc__)
     parser.add_argument("--provider", choices=PROVIDERS, default="anthropic")
+    parser.add_argument(
+        "--delay", type=float, default=0.0, help="CV'ler arasında bekleme (sn), hız sınırı için"
+    )
+    parser.add_argument(
+        "--only", nargs="+", metavar="CV", help="Yalnızca adı bu öneklerle başlayan CV'ler"
+    )
     args = parser.parse_args(argv)
 
+    cases = load_cases()
+    if args.only:
+        cases = [case for case in cases if case.name.startswith(tuple(args.only))]
+        if not cases:
+            parser.error("--only hiçbir CV ile eşleşmedi")
     llm = get_llm_client(args.provider)
-    report = run(llm, load_cases())
+    report = run(llm, cases, delay_seconds=args.delay)
     print(format_report(report, llm.model_name))
     passed = report.recall >= RECALL_TARGET and not report.failures
     return 0 if passed else 1

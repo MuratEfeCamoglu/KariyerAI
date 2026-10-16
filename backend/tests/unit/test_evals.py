@@ -100,3 +100,16 @@ def test_main_with_fake_provider_runs_offline_and_reports(
     assert re.search(r"p95 süre\s+:", output)
     # Sahte istemci gerçek bir ayrıştırıcı değildir; hedefi tutturamaması beklenir.
     assert exit_code == 1
+
+
+def test_only_filter_selects_cases_by_prefix(capsys: pytest.CaptureFixture[str]) -> None:
+    evals_run.main(["--provider", "fake", "--only", "01_", "10_"])
+
+    output = capsys.readouterr().out
+    assert "01_tr_backend" in output and "10_en_qa" in output
+    assert "05_tr_hr_specialist" not in output
+
+
+def test_only_filter_without_match_is_an_error() -> None:
+    with pytest.raises(SystemExit):
+        evals_run.main(["--provider", "fake", "--only", "yok_"])

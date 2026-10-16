@@ -42,7 +42,7 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 - `LLM_PROVIDER=anthropic|gemini|fake` — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. `gemini` (ücretsiz katman) **yalnızca sentetik CV'lerle** kullanılır, gerçek aday verisiyle kullanılmaz (KVKK).
 - `ANTHROPIC_API_KEY` — yalnızca `.env`'de
 - `LLM_MODEL=claude-sonnet-5-5`
-- `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-2.5-flash`
+- `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash`
 - `UPLOAD_DIR=./data/uploads`
 
 ## Kod Kuralları

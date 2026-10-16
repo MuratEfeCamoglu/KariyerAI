@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Gemini ücretsiz katmanı yalnızca sentetik veriyle (eval/test) kullanılır: gönderilen içerik
     # sağlayıcının ürün geliştirmesinde kullanılabilir (KVKK, ISKELET V2).
     gemini_api_key: SecretStr | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
     upload_dir: Path = Path("./data/uploads")
 
 
