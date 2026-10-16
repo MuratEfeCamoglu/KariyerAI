@@ -58,3 +58,8 @@ export function renderRoute(path: string) {
   );
   return router;
 }
+
+/** `fetch` çağrısının JSON gövdesini döner. */
+export function requestBody(init: RequestInit | undefined): unknown {
+  return typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
+}

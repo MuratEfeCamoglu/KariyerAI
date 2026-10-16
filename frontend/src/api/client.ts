@@ -34,7 +34,8 @@ async function toApiError(response: Response): Promise<ApiError> {
   if (isFieldErrorList(detail)) {
     const fieldErrors: Record<string, string> = {};
     for (const error of detail) {
-      const field = String(error.loc.at(-1) ?? "");
+      // ["body", "languages", 0, "level"] → "languages.0.level"
+      const field = error.loc.slice(error.loc[0] === "body" ? 1 : 0).join(".");
       fieldErrors[field] ??= error.msg.replace(/^Value error, /, "");
     }
     return new ApiError(response.status, "Formda hatalı alanlar var", fieldErrors);
@@ -56,4 +57,17 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     return undefined as T;
   }
   return (await response.json()) as T;
+}
+
+/** Alanın kendi hatası ya da alt öğelerinden ilkinin hatası (ör. "required_skills.3"). */
+export function getFieldError(error: unknown, field: string): string | undefined {
+  if (!(error instanceof ApiError)) {
+    return undefined;
+  }
+  const exact = error.fieldErrors[field];
+  if (exact !== undefined) {
+    return exact;
+  }
+  const nestedKey = Object.keys(error.fieldErrors).find((key) => key.startsWith(`${field}.`));
+  return nestedKey === undefined ? undefined : error.fieldErrors[nestedKey];
 }

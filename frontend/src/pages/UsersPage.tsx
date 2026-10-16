@@ -1,7 +1,7 @@
 import { KeyRound, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 
-import { ApiError } from "../api/client.ts";
+import { ApiError, getFieldError } from "../api/client.ts";
 import { Button } from "../components/Button.tsx";
 import { Modal } from "../components/Modal.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
@@ -10,10 +10,6 @@ import { useCurrentUser } from "../hooks/useAuth.ts";
 import { useCreateUser, useUpdateUser, useUsers } from "../hooks/useUsers.ts";
 import { MIN_PASSWORD_LENGTH, ROLE_LABELS, ROLE_OPTIONS } from "../lib/constants.ts";
 import type { User, UserRole } from "../types/user.ts";
-
-function fieldError(error: unknown, field: string): string | undefined {
-  return error instanceof ApiError ? error.fieldErrors[field] : undefined;
-}
 
 function formError(error: unknown): string | null {
   if (!error) {
@@ -58,7 +54,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         <TextField
           label="Ad soyad"
           value={fullName}
-          error={fieldError(createUser.error, "full_name")}
+          error={getFieldError(createUser.error, "full_name")}
           onChange={(event) => {
             setFullName(event.target.value);
           }}
@@ -67,7 +63,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           label="E-posta"
           type="email"
           value={email}
-          error={fieldError(createUser.error, "email")}
+          error={getFieldError(createUser.error, "email")}
           onChange={(event) => {
             setEmail(event.target.value);
           }}
@@ -78,7 +74,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
           autoComplete="new-password"
           value={password}
           hint={`En az ${String(MIN_PASSWORD_LENGTH)} karakter. Kullanıcıya siz iletin.`}
-          error={fieldError(createUser.error, "password")}
+          error={getFieldError(createUser.error, "password")}
           onChange={(event) => {
             setPassword(event.target.value);
           }}
@@ -134,7 +130,7 @@ function SetPasswordModal({ user, onClose }: { user: User; onClose: () => void }
           autoComplete="new-password"
           value={password}
           hint={`En az ${String(MIN_PASSWORD_LENGTH)} karakter.`}
-          error={fieldError(updateUser.error, "password")}
+          error={getFieldError(updateUser.error, "password")}
           onChange={(event) => {
             setPassword(event.target.value);
           }}

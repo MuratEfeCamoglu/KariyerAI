@@ -22,4 +22,4 @@ def test_alembic_upgrade_head_on_empty_database(
 
     tables = set(inspect(engine).get_table_names())
     engine.dispose()
-    assert {"users", "audit_logs"} <= tables
+    assert {"users", "audit_logs", "jobs"} <= tables
