@@ -24,6 +24,14 @@ class LLMRefusalError(LLMError):
     """Model güvenlik gerekçesiyle yanıt vermedi."""
 
 
+class LLMRateLimitError(LLMError):
+    """Sağlayıcı kotası doldu (429). `retry_after`: sağlayıcının önerdiği bekleme (sn)."""
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 @dataclass(frozen=True)
 class Prompt:
     version: str

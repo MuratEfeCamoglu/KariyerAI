@@ -7,7 +7,13 @@ import pytest
 from google import genai
 from google.genai import errors, types
 
-from app.llm.base import PARSED_CV_JSON_SCHEMA, LLMError, LLMOutputError, LLMRefusalError
+from app.llm.base import (
+    PARSED_CV_JSON_SCHEMA,
+    LLMError,
+    LLMOutputError,
+    LLMRateLimitError,
+    LLMRefusalError,
+)
 from app.llm.gemini_client import GeminiClient
 
 VALID_OUTPUT = {
@@ -119,3 +125,37 @@ def test_network_error_becomes_llm_error() -> None:
     with pytest.raises(LLMError) as exc_info:
         client.parse_cv("cv")
     assert not isinstance(exc_info.value, LLMOutputError)
+
+
+def test_quota_error_becomes_rate_limit_with_retry_delay() -> None:
+    body = {
+        "error": {
+            "code": 429,
+            "details": [
+                {"@type": "type.googleapis.com/google.rpc.QuotaFailure"},
+                {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "51s"},
+            ],
+        }
+    }
+    client, _ = _client(errors.ClientError(429, body))
+
+    with pytest.raises(LLMRateLimitError) as exc_info:
+        client.parse_cv("cv")
+    assert exc_info.value.retry_after == 51.0
+
+
+def test_quota_error_without_retry_info_has_no_delay() -> None:
+    client, _ = _client(errors.ClientError(429, {"error": {"code": 429}}))
+
+    with pytest.raises(LLMRateLimitError) as exc_info:
+        client.parse_cv("cv")
+    assert exc_info.value.retry_after is None
+
+
+def test_sdk_does_not_retry_quota_errors() -> None:
+    # Kota dolunca SDK içinde beklemek yerine yedek sağlayıcıya hemen geçilmeli.
+    client = GeminiClient("gemini-test", api_key="test-key")
+    options = client._client._api_client._http_options.retry_options
+    assert options is not None and options.http_status_codes is not None
+    assert 429 not in options.http_status_codes
+    assert 503 in options.http_status_codes

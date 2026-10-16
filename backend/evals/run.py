@@ -4,6 +4,7 @@ Gerçek API çağrısı yapar (ücretsiz katman kotası harcar); CI'da çalışm
 
     uv run python -m evals.run --delay 12         # Groq (GROQ_API_KEY), varsayılan
     uv run python -m evals.run --provider gemini --delay 15   # Gemini (GEMINI_API_KEY)
+    uv run python -m evals.run --provider gemini,groq   # Gemini, kotası dolunca Groq
     uv run python -m evals.run --provider fake    # yalnızca betiğin kendisini denemek için
 
 Çıkış kodu: recall eşiğin altındaysa veya ayrıştırma başarısız olan CV varsa 1.
@@ -147,7 +148,11 @@ def format_report(report: EvalReport, model: str) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evals.run", description=__doc__)
-    parser.add_argument("--provider", choices=PROVIDERS, default="groq")
+    parser.add_argument(
+        "--provider",
+        default="groq",
+        help=f"{', '.join(PROVIDERS)} ya da sıralı liste (ör. gemini,groq)",
+    )
     parser.add_argument(
         "--delay", type=float, default=0.0, help="CV'ler arasında bekleme (sn), hız sınırı için"
     )
@@ -161,7 +166,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         cases = [case for case in cases if case.name.startswith(tuple(args.only))]
         if not cases:
             parser.error("--only hiçbir CV ile eşleşmedi")
-    llm = get_llm_client(args.provider)
+    try:
+        llm = get_llm_client(args.provider)
+    except LLMError as exc:
+        parser.error(str(exc))
     report = run(llm, cases, delay_seconds=args.delay)
     print(format_report(report, llm.model_name))
     passed = report.recall >= RECALL_TARGET and not report.failures

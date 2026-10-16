@@ -173,7 +173,7 @@ audit_logs(id PK, actor_id FK users NULL, action, entity_type, entity_id,
 
 ### 3.6 Dış Bağımlılıklar
 - **Groq API** (OpenAI uyumlu; `httpx` ile, ek SDK yok) — varsayılan sağlayıcı (V2). Model `GROQ_MODEL` ortam değişkeninden okunur, varsayılan `openai/gpt-oss-120b`. Zaman aşımı 60 sn; 429/5xx/ağ hatasında 429 yanıtındaki bekleme süresine uyularak en fazla 2 yeniden deneme.
-- **Google Gemini API** (`google-genai` SDK) — ikinci sağlayıcı (V2). Model `GEMINI_MODEL` ortam değişkeninden okunur, varsayılan `gemini-3.5-flash`. Zaman aşımı 60 sn, geçici hatada en fazla 2 yeniden deneme.
+- **Google Gemini API** (`google-genai` SDK) — ikinci sağlayıcı (V2). Model `GEMINI_MODEL` ortam değişkeninden okunur, varsayılan `gemini-3.5-flash`. Zaman aşımı 60 sn, geçici hatada (5xx/ağ) en fazla 2 yeniden deneme; 429'da yeniden denenmez, yedekli kurulumda hemen sıradaki sağlayıcıya geçilir.
 - `pypdf` (PDF metni), `python-docx` (DOCX metni), `python-magic` yerine `filetype` (saf Python, Windows'ta ek DLL gerektirmez) ile MIME tespiti.
 
 ---
@@ -291,7 +291,7 @@ Toplam ≈ 33 iş günü (~6,5 hafta). Aşamalar sırayla yapılır; her aşama 
 Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirilirse ilgili bölümler güncellenmelidir.
 
 - **V1 — İnsan karar verir:** Sistem yalnızca puan ve gerekçe önerir; otomatik ret/eleme yoktur. (Etkilediği: F6, F9, Kapsam Dışı)
-- **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
+- **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). İkisi birlikte de kullanılabilir: `LLM_PROVIDER=gemini,groq` sağlayıcıları öncelik sırasıyla dener; birincinin kotası dolunca (429) bildirdiği bekleme süresi boyunca sıradaki kullanılır, sonra birinciye dönülür (`app/llm/fallback_client.py`). Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
 - **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru.

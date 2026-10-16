@@ -75,9 +75,12 @@ def _parse_candidate(
     model_name: str | None = None
     try:
         llm = llm_factory()
-        model_name = llm.model_name
         with _llm_slots:
-            parsed = cv_parser.parse_cv(cv_text, llm)
+            try:
+                parsed = cv_parser.parse_cv(cv_text, llm)
+            finally:
+                # Çağrıdan sonra okunur: yedekli istemcide hizmet eden sağlayıcı o an belli olur.
+                model_name = llm.model_name
     except (LLMError, ValidationError) as exc:
         error = _message_for(exc, _PARSE_ERROR_MESSAGES)
         # Yalnızca id ve hata türü loglanır; istisna mesajı CV içeriği taşıyabilir.

@@ -1,7 +1,7 @@
-"""Google Gemini istemcisi — yalnızca geliştirme ve eval içindir (ISKELET V2).
+"""Google Gemini istemcisi (ISKELET V2, §3.6).
 
-Ücretsiz katmanda gönderilen içerik sağlayıcının ürün geliştirmesinde kullanılabilir; bu yüzden
-bu istemciye gerçek aday CV'si gönderilmez, yalnızca sentetik test/eval verisi gönderilir.
+Ücretsiz katmanda gönderilen içerik sağlayıcının ürün geliştirmesinde kullanılabilir; gerçek aday
+CV'leri için ücretli katman önerilir (README, ISKELET R3).
 """
 
 import logging
@@ -18,6 +18,7 @@ from app.llm.base import (
     SCORE_PROMPT_VERSION,
     LLMError,
     LLMOutputError,
+    LLMRateLimitError,
     LLMRefusalError,
     load_prompt,
     parse_json_object,
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 REQUEST_TIMEOUT_MS = 60_000
 TOTAL_ATTEMPTS = 3
 MAX_OUTPUT_TOKENS = 16_000
+# 429 burada yeniden denenmez: kota dolunca beklemek yerine yedek sağlayıcıya geçilir (fallback).
+_RETRYABLE_STATUS = [408, 500, 502, 503, 504]
 
 _REFUSAL_FINISH_REASONS = frozenset(
     {
@@ -42,6 +45,22 @@ _REFUSAL_FINISH_REASONS = frozenset(
 )
 
 
+def _retry_delay(details: Any) -> float | None:
+    """429 gövdesindeki google.rpc.RetryInfo `retryDelay` değerini ("51s") saniyeye çevirir."""
+    error = details.get("error") if isinstance(details, dict) else None
+    items = error.get("details") if isinstance(error, dict) else None
+    if not isinstance(items, list):
+        return None
+    for item in items:
+        delay = item.get("retryDelay") if isinstance(item, dict) else None
+        if isinstance(delay, str) and delay.endswith("s"):
+            try:
+                return max(float(delay[:-1]), 0.0)
+            except ValueError:
+                return None
+    return None
+
+
 class GeminiClient:
     def __init__(
         self, model: str, api_key: str | None = None, client: genai.Client | None = None
@@ -51,7 +70,9 @@ class GeminiClient:
             api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=REQUEST_TIMEOUT_MS,
-                retry_options=types.HttpRetryOptions(attempts=TOTAL_ATTEMPTS),
+                retry_options=types.HttpRetryOptions(
+                    attempts=TOTAL_ATTEMPTS, http_status_codes=_RETRYABLE_STATUS
+                ),
             ),
         )
         self._parse_prompt = load_prompt(PARSE_PROMPT_VERSION)
@@ -95,6 +116,10 @@ class GeminiClient:
         except errors.APIError as exc:
             # Yanıt gövdesi loglanmaz (CV içeriği yansıyabilir); yalnızca durum kodu.
             logger.warning("Gemini API hatası: code=%s", exc.code)
+            if exc.code == 429:
+                raise LLMRateLimitError(
+                    "LLM sağlayıcısının kotası doldu (429)", _retry_delay(exc.details)
+                ) from exc
             raise LLMError(f"LLM sağlayıcısı hata döndürdü ({exc.code})") from exc
         except httpx.HTTPError as exc:
             logger.warning("Gemini API'ye ulaşılamadı: %s", type(exc).__name__)

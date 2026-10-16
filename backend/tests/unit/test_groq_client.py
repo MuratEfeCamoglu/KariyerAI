@@ -5,7 +5,13 @@ from typing import Any
 import httpx
 import pytest
 
-from app.llm.base import PARSED_CV_JSON_SCHEMA, SCORE_JSON_SCHEMA, LLMError, LLMOutputError
+from app.llm.base import (
+    PARSED_CV_JSON_SCHEMA,
+    SCORE_JSON_SCHEMA,
+    LLMError,
+    LLMOutputError,
+    LLMRateLimitError,
+)
 from app.llm.groq_client import MAX_RETRIES, GroqClient
 
 VALID = {"skills": ["Python"], "experiences": [], "education": [], "languages": []}
@@ -144,3 +150,13 @@ def test_network_error_is_retried_then_raised() -> None:
 def test_missing_key_is_rejected() -> None:
     with pytest.raises(ValueError, match="GROQ_API_KEY"):
         GroqClient("model", api_key=None)
+
+
+def test_persistent_rate_limit_raises_rate_limit_error_with_retry_after() -> None:
+    client, requests, _ = _client(lambda _r: httpx.Response(429, headers={"retry-after": "90"}))
+
+    with pytest.raises(LLMRateLimitError) as exc_info:
+        client.parse_cv("cv")
+    assert len(requests) == MAX_RETRIES + 1
+    # Yedekli istemci için kısaltılmamış bekleme süresi iletilir.
+    assert exc_info.value.retry_after == 90.0

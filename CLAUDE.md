@@ -39,7 +39,7 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 ## Ortam Değişkenleri (`backend/.env`)
 - `DATABASE_URL=sqlite:///./data/kariyerai.db`
 - `JWT_SECRET` — en az 32 karakter, repoya girmez
-- `LLM_PROVIDER=groq|gemini|fake` — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. Groq ve Gemini hem gerçek hem test verisiyle kullanılır; **Anthropic/Claude API kullanılmaz**. Gerçek aday verisi için KVKK koşulları: ISKELET R3.
+- `LLM_PROVIDER=groq|gemini|fake` ya da öncelik sıralı liste (`gemini,groq`: Gemini kotası dolunca Groq) — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. Groq ve Gemini hem gerçek hem test verisiyle kullanılır; **Anthropic/Claude API kullanılmaz**. Gerçek aday verisi için KVKK koşulları: ISKELET R3.
 - `GROQ_API_KEY` — yalnızca `.env`'de; `GROQ_MODEL=openai/gpt-oss-120b`
 - `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash`
 - `UPLOAD_DIR=./data/uploads`

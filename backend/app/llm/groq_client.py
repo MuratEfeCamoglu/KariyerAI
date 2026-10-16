@@ -1,7 +1,7 @@
-"""Groq istemcisi (OpenAI uyumlu API) — yalnızca geliştirme ve eval içindir (ISKELET V2).
+"""Groq istemcisi (OpenAI uyumlu API; ISKELET V2, §3.6).
 
-Ücretsiz katman yalnızca sentetik test/eval verisiyle kullanılır; gerçek aday CV'si gönderilmez.
 Ücretsiz katmanın asıl sınırı dakikalık token kotasıdır; 429 yanıtındaki bekleme süresine uyulur.
+Gerçek aday CV'leri için veri saklama koşulları: README, ISKELET R3.
 """
 
 import logging
@@ -18,6 +18,7 @@ from app.llm.base import (
     SCORE_PROMPT_VERSION,
     LLMError,
     LLMOutputError,
+    LLMRateLimitError,
     load_prompt,
     parse_json_object,
     render_score_input,
@@ -36,13 +37,17 @@ _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 ReasoningEffort = Literal["low", "medium"]
 
 
-def _retry_after(response: httpx.Response, attempt: int) -> float:
+def _retry_after_header(response: httpx.Response) -> float | None:
     header = response.headers.get("retry-after")
     try:
-        wait = float(header) if header is not None else 2.0**attempt
+        return max(float(header), 0.0) if header is not None else None
     except ValueError:
-        wait = 2.0**attempt
-    return min(max(wait, 0.0), MAX_RETRY_WAIT_SECONDS)
+        return None
+
+
+def _retry_after(response: httpx.Response, attempt: int) -> float:
+    wait = _retry_after_header(response)
+    return min(wait if wait is not None else 2.0**attempt, MAX_RETRY_WAIT_SECONDS)
 
 
 class GroqClient:
@@ -141,6 +146,11 @@ class GroqClient:
         if response.status_code == 400 and self._error_code(response) == "json_validate_failed":
             # Model şemaya uyan çıktı üretemedi; çağıran taraf bir kez yeniden dener (F5a).
             raise LLMOutputError("Model şemaya uygun JSON üretemedi")
+        if response.status_code == 429:
+            logger.warning("Groq kotası doldu: status=429")
+            raise LLMRateLimitError(
+                "LLM sağlayıcısının kotası doldu (429)", _retry_after_header(response)
+            )
         if response.status_code != 200:
             # Yanıt gövdesi loglanmaz (CV içeriği yansıyabilir); yalnızca durum kodu.
             logger.warning("Groq API hatası: status=%s", response.status_code)

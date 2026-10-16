@@ -7,17 +7,22 @@ from app.core.config import Settings
 from app.llm import factory
 from app.llm.base import LLMError
 from app.llm.fake_client import FakeLLMClient
+from app.llm.fallback_client import FallbackLLMClient
 from app.llm.gemini_client import GeminiClient
 from app.llm.groq_client import GroqClient
 
 
 @pytest.fixture(autouse=True)
 def _clear_client_cache() -> Iterator[None]:
-    factory._gemini_client.cache_clear()
-    factory._groq_client.cache_clear()
+    _clear()
     yield
+    _clear()
+
+
+def _clear() -> None:
     factory._gemini_client.cache_clear()
     factory._groq_client.cache_clear()
+    factory._fallback_client.cache_clear()
 
 
 def _settings(**overrides: object) -> Settings:
@@ -85,3 +90,38 @@ def test_missing_key_raises_llm_error(monkeypatch: pytest.MonkeyPatch, provider:
 def test_unsupported_provider_raises_llm_error(provider: str) -> None:
     with pytest.raises(LLMError):
         factory.get_llm_client(provider)
+
+
+def test_provider_list_builds_shared_fallback_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _settings(
+        llm_provider="gemini,groq",
+        gemini_api_key=SecretStr("test-key"),
+        gemini_model="m-1",
+        groq_api_key=SecretStr("gsk_test"),
+        groq_model="g-1",
+    )
+    monkeypatch.setattr(factory, "get_settings", lambda: settings)
+
+    client = factory.get_llm_client()
+
+    assert isinstance(client, FallbackLLMClient)
+    assert [c.model_name for c in client._clients] == ["m-1", "g-1"]
+    # Kota bekleme durumu tüm arka plan işlerinde ortak kalsın diye aynı nesne döner.
+    assert factory.get_llm_client() is client
+
+
+def test_provider_list_override_for_evals(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _settings(groq_api_key=SecretStr("gsk_test"))
+    monkeypatch.setattr(factory, "get_settings", lambda: settings)
+
+    assert isinstance(factory.get_llm_client("groq,fake"), FallbackLLMClient)
+    with pytest.raises(LLMError, match="anthropic"):
+        factory.get_llm_client("groq,anthropic")
+
+
+def test_provider_list_with_missing_key_raises_llm_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _settings(llm_provider="gemini,groq", gemini_api_key=SecretStr("test-key"))
+    monkeypatch.setattr(factory, "get_settings", lambda: settings)
+
+    with pytest.raises(LLMError, match="API anahtarını"):
+        factory.get_llm_client()

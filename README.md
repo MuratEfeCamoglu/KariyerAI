@@ -56,6 +56,7 @@ kullanıcılarını **Kullanıcılar** sayfasından ekleyebilirsiniz.
 |---|---|---|
 | `groq` ⭐ | Gerçek ve test CV'leri — **önerilen** | `GROQ_API_KEY` (console.groq.com, kart gerekmez). Model `openai/gpt-oss-120b`. Ücretsiz katman: günde 1.000 istek, dakikada 8.000 token |
 | `gemini` | Gerçek ve test CV'leri — ikinci seçenek | `GEMINI_API_KEY` (aistudio.google.com). Model `gemini-3.5-flash`. Ücretsiz katman: günde model başına 20 istek |
+| `gemini,groq` | Uzun süre kesintisiz kullanım | İki anahtar da. Önce Gemini; kotası dolunca (429) Groq'a geçer, Gemini'nin bildirdiği bekleme süresi bitince Gemini'ye döner. Hangi modelin kullanıldığı denetim kaydına yazılır |
 | `fake` (varsayılan) | Geliştirme, otomatik testler, demo | Hiçbir şey; ağa çıkmaz, deterministik. Gerçek bir ayrıştırıcı değildir |
 
 Anthropic/Claude API kullanılmaz.
@@ -79,6 +80,7 @@ recall'unu (hedef ≥ %80) ve ayrıştırma süresini (p95 ≤ 30 sn) ölçer:
 # backend/ içinde — gerçek API çağrısı yapar
 uv run python -m evals.run --delay 12                       # Groq (varsayılan)
 uv run python -m evals.run --provider gemini --delay 15     # Gemini (günlük kota düşük)
+uv run python -m evals.run --provider gemini,groq           # Gemini, kota dolunca Groq
 ```
 
 | Tarih | Model | Beceri recall'u | p95 ayrıştırma |
