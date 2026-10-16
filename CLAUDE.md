@@ -41,7 +41,8 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 - `JWT_SECRET` — en az 32 karakter, repoya girmez
 - `LLM_PROVIDER=groq|gemini|fake` ya da öncelik sıralı liste (`gemini,groq`: Gemini kotası dolunca Groq) — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. Groq ve Gemini hem gerçek hem test verisiyle kullanılır; **Anthropic/Claude API kullanılmaz**. Gerçek aday verisi için KVKK koşulları: ISKELET R3.
 - `GROQ_API_KEY` — yalnızca `.env`'de; `GROQ_MODEL=openai/gpt-oss-120b`
-- `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash`
+- `LLM_PARSE_PROVIDER`, `LLM_SCORE_PROVIDER` — isteğe bağlı, aynı biçimde; boşsa `LLM_PROVIDER`. Ayrıştırma ve puanlamayı ayrı sağlayıcı zincirine yönlendirir
+- `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash` (virgülle sıralı liste olabilir; kota model başınadır)
 - `UPLOAD_DIR=./data/uploads`
 - `COOKIE_SECURE=false` — canlıda (HTTPS arkasında) `true`; `true` iken `.env.example`'daki örnek `JWT_SECRET` ile uygulama başlamaz
 

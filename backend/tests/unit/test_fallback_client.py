@@ -8,6 +8,7 @@ from app.llm.fallback_client import (
     DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS,
     ERROR_COOLDOWN_SECONDS,
     MAX_COOLDOWN_SECONDS,
+    CooldownBoard,
     FallbackLLMClient,
 )
 
@@ -42,7 +43,7 @@ class _StubLLM:
 
 def _fallback(primary: _StubLLM, secondary: _StubLLM) -> tuple[FallbackLLMClient, _Clock]:
     clock = _Clock()
-    return FallbackLLMClient([primary, secondary], clock=clock), clock
+    return FallbackLLMClient([primary, secondary], CooldownBoard(clock)), clock
 
 
 def test_primary_serves_while_it_works() -> None:
@@ -165,3 +166,19 @@ def test_model_name_is_tracked_per_thread() -> None:
 def test_requires_at_least_one_client() -> None:
     with pytest.raises(ValueError):
         FallbackLLMClient([])
+
+
+def test_cooldown_is_shared_between_chains_using_the_same_model() -> None:
+    # Puanlama zincirinin öğrendiği kota bilgisi ayrıştırma zincirinde de geçerli olmalı.
+    clock = _Clock()
+    board = CooldownBoard(clock)
+    score_gemini = _StubLLM("gemini", [LLMRateLimitError("kota", retry_after=600)])
+    parse_gemini = _StubLLM("gemini")
+    score_chain = FallbackLLMClient([score_gemini, _StubLLM("groq")], board)
+    parse_chain = FallbackLLMClient([_StubLLM("groq", [LLMError("503")]), parse_gemini], board)
+
+    score_chain.score_cv("cv", [], {})
+    with pytest.raises(LLMError, match="503"):
+        parse_chain.parse_cv("cv")  # Groq hata verdi; Gemini beklemede olduğu için denenmedi.
+
+    assert parse_gemini.calls == 0

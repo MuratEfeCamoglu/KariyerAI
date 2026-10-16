@@ -22,16 +22,36 @@ ERROR_COOLDOWN_SECONDS = 30.0
 MAX_COOLDOWN_SECONDS = 24 * 60 * 60.0
 
 
+class CooldownBoard:
+    """Model adına göre "ne zamana kadar atlanacak" tablosu.
+
+    Kota model başınadır; ayrıştırma ve puanlama zincirleri aynı modeli kullanıyorsa birinin
+    öğrendiği 429 diğerinde de geçerli olsun diye tablo zincirler arasında paylaşılır.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self.clock = clock
+        self._lock = threading.Lock()
+        self._until: dict[str, float] = {}
+
+    def until(self, model: str) -> float:
+        with self._lock:
+            return self._until.get(model, 0.0)
+
+    def cool_down(self, model: str, seconds: float) -> None:
+        until = self.clock() + min(seconds, MAX_COOLDOWN_SECONDS)
+        with self._lock:
+            self._until[model] = max(self._until.get(model, 0.0), until)
+
+
 class FallbackLLMClient:
     def __init__(
-        self, clients: Sequence[LLMClient], clock: Callable[[], float] = time.monotonic
+        self, clients: Sequence[LLMClient], cooldowns: CooldownBoard | None = None
     ) -> None:
         if not clients:
             raise ValueError("En az bir LLM istemcisi gerekir")
         self._clients = list(clients)
-        self._clock = clock
-        self._lock = threading.Lock()
-        self._cooldown_until = [0.0] * len(self._clients)
+        self._cooldowns = cooldowns or CooldownBoard()
         # Arka plan işleri ayrı thread'lerde çalışır; her thread kendi çağrısına hizmet eden
         # modeli görmeli (pipeline ve puanlama `model_name`'i çağrıdan sonra okur, audit'e yazar).
         self._served = threading.local()
@@ -49,24 +69,18 @@ class FallbackLLMClient:
     ) -> dict[str, Any]:
         return self._call(lambda client: client.score_cv(anonymized_cv, criteria, profile))
 
-    def _order(self) -> list[int]:
+    def _order(self) -> list[LLMClient]:
         """Beklemede olmayanlar öncelik sırasıyla; hepsi beklemedeyse en erken açılan."""
-        now = self._clock()
-        with self._lock:
-            ready = [i for i, until in enumerate(self._cooldown_until) if until <= now]
-            if ready:
-                return ready
-            return [min(range(len(self._clients)), key=lambda i: self._cooldown_until[i])]
-
-    def _cool_down(self, index: int, seconds: float) -> None:
-        until = self._clock() + min(seconds, MAX_COOLDOWN_SECONDS)
-        with self._lock:
-            self._cooldown_until[index] = max(self._cooldown_until[index], until)
+        now = self._cooldowns.clock()
+        until = {id(c): self._cooldowns.until(c.model_name) for c in self._clients}
+        ready = [c for c in self._clients if until[id(c)] <= now]
+        if ready:
+            return ready
+        return [min(self._clients, key=lambda c: until[id(c)])]
 
     def _call(self, call: Callable[[LLMClient], dict[str, Any]]) -> dict[str, Any]:
         last_error: LLMError | None = None
-        for index in self._order():
-            client = self._clients[index]
+        for client in self._order():
             try:
                 result = call(client)
             except LLMOutputError:
@@ -74,15 +88,16 @@ class FallbackLLMClient:
                 raise
             except LLMRateLimitError as exc:
                 wait = exc.retry_after
-                self._cool_down(
-                    index, DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS if wait is None else wait
+                self._cooldowns.cool_down(
+                    client.model_name,
+                    DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS if wait is None else wait,
                 )
                 last_error = exc
             except LLMRefusalError as exc:
                 # İçeriğe özgü; sağlayıcı sağlam, beklemeye alınmaz.
                 last_error = exc
             except LLMError as exc:
-                self._cool_down(index, ERROR_COOLDOWN_SECONDS)
+                self._cooldowns.cool_down(client.model_name, ERROR_COOLDOWN_SECONDS)
                 last_error = exc
             else:
                 self._served.model = client.model_name

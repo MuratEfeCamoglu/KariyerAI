@@ -43,3 +43,42 @@ def test_llm_provider_accepts_ordered_list(value: str, expected: list[str]) -> N
 def test_llm_provider_rejects_unknown_or_duplicate(value: str) -> None:
     with pytest.raises(ValidationError, match="LLM_PROVIDER"):
         Settings.model_validate({"jwt_secret": "x" * 32, "llm_provider": value})
+
+
+def test_task_providers_default_to_llm_provider() -> None:
+    settings = Settings.model_validate(
+        {"jwt_secret": "x" * 32, "llm_provider": "groq", "llm_parse_provider": ""}
+    )
+
+    assert settings.parse_providers == ["groq"]
+    assert settings.score_providers == ["groq"]
+
+
+def test_task_providers_override_and_are_validated() -> None:
+    settings = Settings.model_validate(
+        {
+            "jwt_secret": "x" * 32,
+            "llm_provider": "groq",
+            "llm_parse_provider": "groq,gemini",
+            "llm_score_provider": "gemini,groq",
+        }
+    )
+    assert settings.parse_providers == ["groq", "gemini"]
+    assert settings.score_providers == ["gemini", "groq"]
+
+    with pytest.raises(ValidationError, match="LLM_PROVIDER"):
+        Settings.model_validate({"jwt_secret": "x" * 32, "llm_score_provider": "anthropic"})
+
+
+def test_gemini_model_accepts_list() -> None:
+    settings = Settings.model_validate(
+        {"jwt_secret": "x" * 32, "gemini_model": "gemini-3.5-flash, gemini-3-flash-preview"}
+    )
+
+    assert settings.gemini_models == ["gemini-3.5-flash", "gemini-3-flash-preview"]
+
+
+@pytest.mark.parametrize("value", ["", "a,,b", "a,a"])
+def test_gemini_model_rejects_empty_or_duplicate(value: str) -> None:
+    with pytest.raises(ValidationError, match="GEMINI_MODEL"):
+        Settings.model_validate({"jwt_secret": "x" * 32, "gemini_model": value})

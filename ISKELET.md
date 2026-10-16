@@ -200,6 +200,7 @@ KariyerAI/
 │   │   ├── api/                    # auth.py users.py jobs.py applications.py candidates.py audit.py
 │   │   ├── services/               # cv_extract.py cv_parser.py anonymizer.py scoring.py pipeline.py audit.py
 │   │   ├── llm/                    # base.py groq_client.py gemini_client.py fake_client.py factory.py
+│   │   │                           # fallback_client.py (kota dolunca sıradaki) task_router.py (iş başına sağlayıcı)
 │   │   │   └── prompts/            # parse_v1.md score_v1.md
 │   │   └── storage/                # files.py
 │   ├── evals/                      # run.py + cvs/ (10 sentetik CV + beklenen JSON)
@@ -291,7 +292,7 @@ Toplam ≈ 33 iş günü (~6,5 hafta). Aşamalar sırayla yapılır; her aşama 
 Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirilirse ilgili bölümler güncellenmelidir.
 
 - **V1 — İnsan karar verir:** Sistem yalnızca puan ve gerekçe önerir; otomatik ret/eleme yoktur. (Etkilediği: F6, F9, Kapsam Dışı)
-- **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). İkisi birlikte de kullanılabilir: `LLM_PROVIDER=gemini,groq` sağlayıcıları öncelik sırasıyla dener; birincinin kotası dolunca (429) bildirdiği bekleme süresi boyunca sıradaki kullanılır, sonra birinciye dönülür (`app/llm/fallback_client.py`). Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
+- **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). İkisi birlikte de kullanılabilir: `LLM_PROVIDER=gemini,groq` sağlayıcıları öncelik sırasıyla dener; birincinin kotası dolunca (429) bildirdiği bekleme süresi boyunca sıradaki kullanılır, sonra birinciye dönülür (`app/llm/fallback_client.py`). `GEMINI_MODEL` de sıralı liste olabilir (ücretsiz kota model başınadır). `LLM_PARSE_PROVIDER` / `LLM_SCORE_PROVIDER` ayrıştırma ve puanlamayı ayrı zincirlere yönlendirir (`app/llm/task_router.py`); ör. ayrıştırma `groq,gemini`, puanlama `gemini,groq` ile Gemini CV başına tek istek harcar. Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
 - **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru.

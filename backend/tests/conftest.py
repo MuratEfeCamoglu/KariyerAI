@@ -2,6 +2,9 @@ import os
 
 # Ayarlar modül import edilirken okunduğu için uygulama import'undan önce sabitlenmeli.
 os.environ["LLM_PROVIDER"] = "fake"
+# .env'de işe özel sağlayıcı tanımlıysa testler gerçek API'ye gitmesin (boş = LLM_PROVIDER).
+os.environ["LLM_PARSE_PROVIDER"] = ""
+os.environ["LLM_SCORE_PROVIDER"] = ""
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ.setdefault("JWT_SECRET", "test-secret-0123456789abcdef0123456789")
 

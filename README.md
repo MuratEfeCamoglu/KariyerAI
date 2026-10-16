@@ -57,6 +57,7 @@ kullanıcılarını **Kullanıcılar** sayfasından ekleyebilirsiniz.
 | `groq` ⭐ | Gerçek ve test CV'leri — **önerilen** | `GROQ_API_KEY` (console.groq.com, kart gerekmez). Model `openai/gpt-oss-120b`. Ücretsiz katman: günde 1.000 istek, dakikada 8.000 token |
 | `gemini` | Gerçek ve test CV'leri — ikinci seçenek | `GEMINI_API_KEY` (aistudio.google.com). Model `gemini-3.5-flash`. Ücretsiz katman: günde model başına 20 istek |
 | `gemini,groq` | Uzun süre kesintisiz kullanım | İki anahtar da. Önce Gemini; kotası dolunca (429) Groq'a geçer, Gemini'nin bildirdiği bekleme süresi bitince Gemini'ye döner. Hangi modelin kullanıldığı denetim kaydına yazılır |
+| `LLM_PARSE_PROVIDER=groq,gemini` + `LLM_SCORE_PROVIDER=gemini,groq` | Gemini kotasını en uzun süre kullanmak | Ayrıştırma Groq'ta, puanlama Gemini'de yapılır: Gemini CV başına 1 istek harcar. Ek olarak `GEMINI_MODEL` virgüllü liste olabilir (ör. `gemini-3.5-flash,gemini-3.6-flash,gemini-3-flash-preview`); kota model başına olduğundan biri dolunca sıradaki kullanılır |
 | `fake` (varsayılan) | Geliştirme, otomatik testler, demo | Hiçbir şey; ağa çıkmaz, deterministik. Gerçek bir ayrıştırıcı değildir |
 
 Anthropic/Claude API kullanılmaz.
