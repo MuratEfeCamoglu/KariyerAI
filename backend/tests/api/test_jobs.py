@@ -209,7 +209,12 @@ def test_get_job(recruiter_client: TestClient) -> None:
     response = recruiter_client.get(f"/api/jobs/{created['id']}")
 
     assert response.status_code == 200
-    assert response.json() == created
+    assert response.json() == {
+        **created,
+        "application_count": 0,
+        "top_score": None,
+        "avg_score": None,
+    }
 
 
 def test_get_unknown_job_returns_404(recruiter_client: TestClient) -> None:

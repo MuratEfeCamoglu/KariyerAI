@@ -10,6 +10,9 @@ dependencies = [
     "pydantic-settings",
     "bcrypt>=5.0.0",
     "pyjwt>=2.15.1",
+    "pypdf>=6.20.1",
+    "python-docx>=1.2.0",
+    "filetype>=1.2.0",
 ]
 
 [dependency-groups]
@@ -41,6 +44,11 @@ known-third-party = ["alembic"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# filetype tip bilgisi (py.typed) içermiyor.
+module = ["filetype", "filetype.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

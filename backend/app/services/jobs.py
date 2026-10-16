@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import FieldValidationError, NotFoundError
+from app.core.errors import ConflictError, FieldValidationError, NotFoundError
+from app.models.application import Application
 from app.models.job import Job
 from app.services import audit
 from app.services.text import fold
@@ -35,10 +36,39 @@ def _check_skill_overlap(required: list[str], preferred: list[str]) -> None:
         )
 
 
+def _stats_by_job(db: Session, job_ids: list[int]) -> dict[int, JobStats]:
+    if not job_ids:
+        return {}
+    # max/avg puanı olmayan (henüz puanlanmamış) başvuruları yok sayar; sayıma hepsi girer.
+    rows = db.execute(
+        select(
+            Application.job_id,
+            func.count(Application.id),
+            func.max(Application.score),
+            func.avg(Application.score),
+        )
+        .where(Application.job_id.in_(job_ids))
+        .group_by(Application.job_id)
+    ).all()
+    return {
+        job_id: JobStats(
+            application_count=count,
+            top_score=top,
+            avg_score=round(float(avg), 1) if avg is not None else None,
+        )
+        for job_id, count, top, avg in rows
+    }
+
+
 def list_jobs(db: Session) -> list[tuple[Job, JobStats]]:
     jobs = db.scalars(select(Job).order_by(Job.created_at.desc(), Job.id.desc())).all()
-    # Başvuru tablosu Aşama 3'te eklenir; o zamana kadar her ilanın istatistiği boştur.
-    return [(job, EMPTY_STATS) for job in jobs]
+    stats = _stats_by_job(db, [job.id for job in jobs])
+    return [(job, stats.get(job.id, EMPTY_STATS)) for job in jobs]
+
+
+def get_job_with_stats(db: Session, job_id: int) -> tuple[Job, JobStats]:
+    job = get_job(db, job_id)
+    return job, _stats_by_job(db, [job_id]).get(job_id, EMPTY_STATS)
 
 
 def get_job(db: Session, job_id: int) -> Job:
@@ -93,7 +123,8 @@ def update_job(db: Session, *, job_id: int, changes: dict[str, Any], actor_id: i
 
 def delete_job(db: Session, *, job_id: int, actor_id: int) -> None:
     job = get_job(db, job_id)
-    # Başvurusu olan ilanın silinmesini engelleme (409) Aşama 3'te başvurularla birlikte eklenir.
+    if db.scalar(select(Application.id).where(Application.job_id == job_id).limit(1)) is not None:
+        raise ConflictError("Başvurusu olan ilan silinemez; bunun yerine ilanı kapatabilirsiniz")
     db.delete(job)
     audit.record(db, actor_id=actor_id, action="job.delete", entity_type="job", entity_id=job_id)
     db.commit()

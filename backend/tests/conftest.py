@@ -14,11 +14,14 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core import security
-from app.core.db import create_db_engine, get_db
+from app.core.db import create_db_engine, get_db, get_session_factory
 from app.core.security import login_rate_limiter
 from app.main import app
 from app.models import Base, User, UserRole
 from app.services import users as users_service
+from app.storage.files import FileStorage, get_storage
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 ADMIN_PASSWORD = "admin-password-123"
 RECRUITER_PASSWORD = "recruiter-password-123"
@@ -57,12 +60,19 @@ def _fast_bcrypt(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
+def storage(tmp_path: Path) -> FileStorage:
+    return FileStorage(tmp_path / "uploads")
+
+
+@pytest.fixture
+def client(session_factory: sessionmaker[Session], storage: FileStorage) -> Iterator[TestClient]:
     def override_get_db() -> Iterator[Session]:
         with session_factory() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
+    app.dependency_overrides[get_storage] = lambda: storage
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -68,3 +68,8 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 def get_db() -> Iterator[Session]:
     with SessionLocal() as session:
         yield session
+
+
+def get_session_factory() -> sessionmaker[Session]:
+    """Arka plan işleri istek oturumunu kullanamaz (istek bitince kapanır); kendininkini açar."""
+    return SessionLocal

@@ -1,12 +1,43 @@
+import logging
+import threading
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import auth, jobs, users
+from app.core.db import get_session_factory
 from app.core.errors import DomainError, FieldValidationError, translate_validation_errors
+from app.services import pipeline
 
-app = FastAPI(title="KariyerAI API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+def _requeue_in_background(app: FastAPI) -> None:
+    # Testler oturum fabrikasını dependency_overrides ile değiştirir; açılış da aynısını kullanmalı.
+    factory_provider = app.dependency_overrides.get(get_session_factory, get_session_factory)
+    session_factory = factory_provider()
+
+    def run() -> None:
+        try:
+            pipeline.requeue_unfinished(session_factory)
+        except Exception:
+            logger.exception("Açılışta yeniden kuyruğa alma başarısız")
+
+    # Uzun sürebilir (LLM çağrıları); sunucunun açılmasını bekletmesin.
+    threading.Thread(target=run, name="pipeline-requeue", daemon=True).start()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    _requeue_in_background(app)
+    yield
+
+
+app = FastAPI(title="KariyerAI API", version="0.1.0", lifespan=lifespan)
 
 # Framework'ün kendi ürettiği hatalar (bilinmeyen yol, yanlış metot, okunamayan gövde) İngilizce
 # gelir; API mesajları Türkçe olmalı (CLAUDE.md).

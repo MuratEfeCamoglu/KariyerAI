@@ -20,16 +20,12 @@ function isFieldErrorList(value: unknown): value is FastApiFieldError[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null);
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
-  let detail: unknown = null;
-  try {
-    detail = ((await response.json()) as { detail?: unknown }).detail;
-  } catch {
-    // Gövdesi JSON olmayan hata (ör. proxy 502) genel mesaja düşer.
-  }
+/** Hata yanıtının gövdesinden ApiError üretir; fetch ve XHR (dosya yükleme) ortak kullanır. */
+export function errorFromBody(status: number, body: unknown): ApiError {
+  const detail = typeof body === "object" && body !== null && "detail" in body ? body.detail : null;
 
   if (typeof detail === "string") {
-    return new ApiError(response.status, detail);
+    return new ApiError(status, detail);
   }
   if (isFieldErrorList(detail)) {
     const fieldErrors: Record<string, string> = {};
@@ -38,9 +34,19 @@ async function toApiError(response: Response): Promise<ApiError> {
       const field = error.loc.slice(error.loc[0] === "body" ? 1 : 0).join(".");
       fieldErrors[field] ??= error.msg.replace(/^Value error, /, "");
     }
-    return new ApiError(response.status, "Formda hatalı alanlar var", fieldErrors);
+    return new ApiError(status, "Formda hatalı alanlar var", fieldErrors);
   }
-  return new ApiError(response.status, "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+  return new ApiError(status, "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Gövdesi JSON olmayan hata (ör. proxy 502) genel mesaja düşer.
+  }
+  return errorFromBody(response.status, body);
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {

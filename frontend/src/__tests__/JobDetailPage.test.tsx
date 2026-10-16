@@ -1,10 +1,10 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Job } from "../types/job.ts";
+import type { JobListItem } from "../types/job.ts";
 import { jsonResponse, mockApi, recruiterUser, renderRoute } from "./testUtils.tsx";
 
-const job: Job = {
+const job: JobListItem = {
   id: 3,
   title: "Mobil Geliştirici",
   department: "Ürün",
@@ -18,6 +18,9 @@ const job: Job = {
   created_by: 2,
   created_at: "2026-10-15T09:00:00Z",
   updated_at: "2026-10-15T09:00:00Z",
+  application_count: 0,
+  top_score: null,
+  avg_score: null,
 };
 
 describe("JobDetailPage", () => {
@@ -41,6 +44,24 @@ describe("JobDetailPage", () => {
     expect(screen.getByText("Aranmıyor")).toBeInTheDocument();
     expect(screen.getByText("İngilizce · C1")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Düzenle" })).toHaveAttribute("href", "/jobs/3/edit");
+    // Kapalı ilana CV yüklenemez (F3); yükleme alanı devre dışıdır.
+    expect(screen.getByLabelText("CV dosyaları")).toBeDisabled();
+    expect(screen.getByText("0 başvuru")).toBeInTheDocument();
+  });
+
+  it("açık ilanda başvuru sayısını gösterir ve yüklemeye izin verir", async () => {
+    mockApi((_method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, recruiterUser);
+      if (path === "/jobs/3") {
+        return jsonResponse(200, { ...job, status: "open", application_count: 4 });
+      }
+      return undefined;
+    });
+    renderRoute("/jobs/3");
+
+    expect(await screen.findByText("4 başvuru")).toBeInTheDocument();
+    expect(screen.getByLabelText("CV dosyaları")).toBeEnabled();
+    expect(screen.queryByText("Henüz başvuru yok")).not.toBeInTheDocument();
   });
 
   it("olmayan ilan için hata gösterir", async () => {

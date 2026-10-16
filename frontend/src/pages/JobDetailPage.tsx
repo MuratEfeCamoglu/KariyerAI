@@ -7,6 +7,7 @@ import { Button } from "../components/Button.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { JobStatusBadge } from "../components/JobStatusBadge.tsx";
 import { Modal } from "../components/Modal.tsx";
+import { UploadDropzone } from "../components/UploadDropzone.tsx";
 import { useDeleteJob, useJob } from "../hooks/useJobs.ts";
 import { EDUCATION_LABELS } from "../lib/constants.ts";
 import { formatDate } from "../lib/format.ts";
@@ -173,8 +174,16 @@ export function JobDetailPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-ink">Başvurular</h2>
-        <EmptyState title="Henüz başvuru yok" />
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold text-ink">Başvurular</h2>
+          <span className="text-sm text-ink-muted">{data.application_count} başvuru</span>
+        </div>
+        <UploadDropzone jobId={id} disabled={data.status === "closed"} />
+        {data.application_count === 0 && (
+          <div className="mt-4">
+            <EmptyState title="Henüz başvuru yok" description="CV yükleyerek başlayın." />
+          </div>
+        )}
       </section>
 
       {confirmingDelete && (

@@ -45,6 +45,12 @@ export const JOB_LIMITS = {
   experienceMax: 40,
 } as const;
 
+/** ISKELET.md F4 yükleme sınırları; backend doğrulamasıyla aynı tutulur. */
+export const UPLOAD_LIMITS = {
+  maxFiles: 20,
+  maxFileBytes: 5 * 1024 * 1024,
+} as const;
+
 /** ISKELET.md §3.5 sabit ağırlıklar (V6). */
 export const SCORE_WEIGHTS = [
   { key: "required_skills", label: "Zorunlu beceriler", weight: 40 },
