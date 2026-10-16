@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import applications, auth, jobs, users
+from app.api import applications, audit, auth, candidates, jobs, users
 from app.core.db import get_session_factory
 from app.core.errors import DomainError, FieldValidationError, translate_validation_errors
 from app.services import pipeline
@@ -81,6 +81,9 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(applications.router, prefix="/api")
+app.include_router(applications.notes_router, prefix="/api")
+app.include_router(candidates.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")
 
 
 @app.get("/api/health")

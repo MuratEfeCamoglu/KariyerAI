@@ -1,4 +1,4 @@
-import type { ApplicationStatus, ProcessingStatus } from "../types/application.ts";
+import type { ApplicationStatus, EvidenceStatus, ProcessingStatus } from "../types/application.ts";
 import type { EducationLevel, JobStatus, LanguageLevel } from "../types/job.ts";
 import type { UserRole } from "../types/user.ts";
 
@@ -119,3 +119,29 @@ export const PROCESSING_STATUS_OPTIONS: ProcessingStatus[] = [
   "done",
   "failed",
 ];
+
+/** ISKELET B3: her kalem ya doğrulanmış kanıt ya da açık bir ibare gösterir. */
+export const EVIDENCE_STATUS_LABELS: Record<EvidenceStatus, string> = {
+  verified: "Kanıt doğrulandı",
+  no_evidence: "Kanıt bulunamadı",
+  unverified: "Kanıt doğrulanamadı",
+  level_unknown: "Seviye belirtilmemiş",
+  level_insufficient: "Seviye yetersiz",
+};
+
+/** Denetim kaydı eylemleri (F12); bilinmeyen eylem kendi koduyla gösterilir. */
+export const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "auth.login": "Giriş",
+  "user.create": "Kullanıcı oluşturma",
+  "user.update": "Kullanıcı güncelleme",
+  "job.create": "İlan oluşturma",
+  "job.update": "İlan güncelleme",
+  "job.delete": "İlan silme",
+  "job.rescore": "Yeniden puanlama",
+  "cv.upload": "CV yükleme",
+  "cv.parse": "Ayrıştırma sonucu",
+  "score.result": "Puanlama sonucu",
+  "application.status": "Durum değişikliği",
+  "application.retry": "Yeniden deneme",
+  "candidate.delete": "Aday silme",
+};

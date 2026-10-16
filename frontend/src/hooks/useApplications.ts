@@ -1,7 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { listApplications, rescoreJob, retryApplication } from "../api/applications.ts";
-import type { ApplicationFilters, ApplicationList } from "../types/application.ts";
+import {
+  addNote,
+  changeStatus,
+  deleteNote,
+  getApplication,
+  listApplications,
+  rescoreJob,
+  retryApplication,
+} from "../api/applications.ts";
+import type {
+  ApplicationDetail,
+  ApplicationFilters,
+  ApplicationList,
+  ApplicationStatus,
+} from "../types/application.ts";
 import { jobKeys } from "./useJobs.ts";
 
 /** F7d: işlenen kayıt varken 5 sn'de bir yenile; kalmayınca dur. */
@@ -28,11 +41,11 @@ export function useApplications(jobId: number, filters: ApplicationFilters, page
   });
 }
 
-export function useRetryApplication(jobId: number) {
+export function useRetryApplication() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: retryApplication,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: applicationKeys.byJob(jobId) }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: jobKeys.all }),
   });
 }
 
@@ -41,5 +54,49 @@ export function useRescoreJob(jobId: number) {
   return useMutation({
     mutationFn: () => rescoreJob(jobId),
     onSettled: () => queryClient.invalidateQueries({ queryKey: jobKeys.all }),
+  });
+}
+
+export const detailKey = (id: number) => [...jobKeys.all, "application", id] as const;
+
+function isActive(detail: ApplicationDetail | undefined): boolean {
+  if (detail === undefined) return false;
+  const active = (status: string) => status === "pending" || status === "processing";
+  return active(detail.candidate.parse_status) || active(detail.score_status);
+}
+
+export function useApplication(id: number) {
+  return useQuery({
+    queryKey: detailKey(id),
+    queryFn: () => getApplication(id),
+    // Ayrıştırma/puanlama sürerken detay da kendini yeniler (F7d ile aynı kural).
+    refetchInterval: (query) => (isActive(query.state.data) ? AUTO_REFRESH_MS : false),
+  });
+}
+
+export function useChangeStatus(id: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (status: ApplicationStatus) => changeStatus(id, status),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(detailKey(id), detail);
+      return queryClient.invalidateQueries({ queryKey: applicationKeys.byJob(detail.job.id) });
+    },
+  });
+}
+
+export function useAddNote(applicationId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => addNote(applicationId, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: detailKey(applicationId) }),
+  });
+}
+
+export function useDeleteNote(applicationId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteNote,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: detailKey(applicationId) }),
   });
 }

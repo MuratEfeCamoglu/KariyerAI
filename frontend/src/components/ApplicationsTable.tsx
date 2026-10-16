@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 
-import { ApiError } from "../api/client.ts";
-import { useApplications, useRescoreJob, useRetryApplication } from "../hooks/useApplications.ts";
+import { useApplications, useRescoreJob } from "../hooks/useApplications.ts";
 import {
   AI_DISCLAIMER,
   APPLICATION_STATUS_LABELS,
@@ -22,6 +22,7 @@ import { Button } from "./Button.tsx";
 import { CriterionBars } from "./CriterionBars.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 import { ProcessingBadge } from "./ProcessingBadge.tsx";
+import { RetryButton } from "./RetryButton.tsx";
 import { ScoreRing } from "./ScoreRing.tsx";
 import { StatusBadge } from "./StatusBadge.tsx";
 
@@ -51,36 +52,6 @@ function rowState(
     return { kind: "busy", status: row.score_status };
   }
   return { kind: "done" };
-}
-
-function RetryButton({ row, jobId }: { row: ApplicationRow; jobId: number }) {
-  const retry = useRetryApplication(jobId);
-  const error =
-    retry.error instanceof ApiError
-      ? retry.error.message
-      : retry.error
-        ? "Yeniden denenemedi"
-        : null;
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        variant="secondary"
-        size="sm"
-        loading={retry.isPending}
-        onClick={() => {
-          retry.mutate(row.id);
-        }}
-      >
-        <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" />
-        Yeniden dene
-      </Button>
-      {error && (
-        <span role="alert" className="max-w-56 text-xs text-ink-muted">
-          {error}
-        </span>
-      )}
-    </div>
-  );
 }
 
 function Filters({
@@ -242,8 +213,13 @@ export function ApplicationsTable({ jobId }: ApplicationsTableProps) {
                       <td className="px-4 py-3 text-ink-subtle tabular-nums">
                         {firstRank + index + 1}
                       </td>
-                      <td className="px-4 py-3 font-medium text-ink">
-                        {row.candidate_name ?? `Aday #${String(row.candidate_id)}`}
+                      <td className="px-4 py-3 font-medium">
+                        <Link
+                          to={`/applications/${String(row.id)}`}
+                          className="text-ink hover:text-accent-700 hover:underline focus-visible:outline-2 focus-visible:outline-accent-500"
+                        >
+                          {row.candidate_name ?? `Aday #${String(row.candidate_id)}`}
+                        </Link>
                       </td>
                       {state.kind === "done" && row.score !== null ? (
                         <>
@@ -264,7 +240,7 @@ export function ApplicationsTable({ jobId }: ApplicationsTableProps) {
                               <CircleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
                               {state.reason}
                             </span>
-                            <RetryButton row={row} jobId={jobId} />
+                            <RetryButton applicationId={row.id} />
                           </div>
                         </td>
                       ) : (

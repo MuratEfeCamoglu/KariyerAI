@@ -3,6 +3,8 @@ import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 import { AppLayout } from "./components/AppLayout.tsx";
 import { RequireAdmin } from "./components/RequireAdmin.tsx";
 import { RequireAuth } from "./components/RequireAuth.tsx";
+import { ApplicationDetailPage } from "./pages/ApplicationDetailPage.tsx";
+import { AuditPage } from "./pages/AuditPage.tsx";
 import { JobDetailPage } from "./pages/JobDetailPage.tsx";
 import { JobFormPage } from "./pages/JobFormPage.tsx";
 import { JobsPage } from "./pages/JobsPage.tsx";
@@ -21,9 +23,13 @@ export const routes: RouteObject[] = [
           { path: "/jobs/new", element: <JobFormPage /> },
           { path: "/jobs/:id", element: <JobDetailPage /> },
           { path: "/jobs/:id/edit", element: <JobFormPage /> },
+          { path: "/applications/:id", element: <ApplicationDetailPage /> },
           {
             element: <RequireAdmin />,
-            children: [{ path: "/users", element: <UsersPage /> }],
+            children: [
+              { path: "/users", element: <UsersPage /> },
+              { path: "/audit", element: <AuditPage /> },
+            ],
           },
         ],
       },

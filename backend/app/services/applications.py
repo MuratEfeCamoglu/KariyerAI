@@ -1,11 +1,21 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
-from app.models import Application, ApplicationStatus, Candidate, ProcessingStatus
+from app.models import (
+    Application,
+    ApplicationStatus,
+    AuditLog,
+    Candidate,
+    Job,
+    Note,
+    ProcessingStatus,
+    User,
+)
 from app.services import audit
 from app.services.candidates import NO_TEXT, UNREADABLE
 from app.services.jobs import get_job
@@ -176,3 +186,108 @@ def retry_application(db: Session, *, application_id: int, actor_id: int) -> int
     )
     db.commit()
     return application_id
+
+
+STATUS_CHANGE_ACTION = "application.status"
+
+
+@dataclass(frozen=True)
+class NoteView:
+    note: Note
+    author_name: str
+
+
+@dataclass(frozen=True)
+class StatusChangeView:
+    from_status: ApplicationStatus
+    to_status: ApplicationStatus
+    actor_id: int | None
+    actor_name: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ApplicationDetail:
+    application: Application
+    candidate: Candidate
+    job: Job
+    notes: list[NoteView]
+    status_history: list[StatusChangeView]
+
+
+def get_application(db: Session, application_id: int) -> Application:
+    application = db.get(Application, application_id)
+    if application is None:
+        raise NotFoundError("Başvuru bulunamadı")
+    return application
+
+
+def _status_history(db: Session, application_id: int) -> list[StatusChangeView]:
+    rows = db.execute(
+        select(AuditLog, User.full_name)
+        .outerjoin(User, User.id == AuditLog.actor_id)
+        .where(
+            AuditLog.action == STATUS_CHANGE_ACTION,
+            AuditLog.entity_type == "application",
+            AuditLog.entity_id == application_id,
+        )
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+    ).all()
+    return [
+        StatusChangeView(
+            from_status=ApplicationStatus(entry.payload["from"]),
+            to_status=ApplicationStatus(entry.payload["to"]),
+            actor_id=entry.actor_id,
+            actor_name=name,
+            created_at=entry.created_at,
+        )
+        for entry, name in rows
+    ]
+
+
+def get_detail(db: Session, application_id: int) -> ApplicationDetail:
+    """F8: aday detayının tek sayfada gösterdiği her şey."""
+    application = get_application(db, application_id)
+    candidate = db.get(Candidate, application.candidate_id)
+    job = db.get(Job, application.job_id)
+    assert candidate is not None and job is not None
+    notes = [
+        NoteView(note=note, author_name=name)
+        for note, name in db.execute(
+            select(Note, User.full_name)
+            .join(User, User.id == Note.author_id)
+            .where(Note.application_id == application_id)
+            .order_by(Note.created_at.desc(), Note.id.desc())
+        ).all()
+    ]
+    return ApplicationDetail(
+        application=application,
+        candidate=candidate,
+        job=job,
+        notes=notes,
+        status_history=_status_history(db, application_id),
+    )
+
+
+def change_status(
+    db: Session, *, application_id: int, status: ApplicationStatus, actor_id: int
+) -> Application:
+    """F9: her durumdan her duruma serbest geçiş; yalnızca kullanıcı isteğiyle çağrılır.
+
+    Sistem (pipeline, puanlama) durumu hiçbir zaman değiştirmez — otomatik eleme yok (V1).
+    """
+    application = get_application(db, application_id)
+    previous = application.status
+    if previous is status:
+        return application
+    application.status = status
+    audit.record(
+        db,
+        actor_id=actor_id,
+        action=STATUS_CHANGE_ACTION,
+        entity_type="application",
+        entity_id=application_id,
+        payload={"from": previous.value, "to": status.value},
+    )
+    db.commit()
+    return application

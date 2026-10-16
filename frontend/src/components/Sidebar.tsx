@@ -1,4 +1,4 @@
-import { Briefcase, LogOut, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, LogOut, ScrollText, Users, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 
 import { useLogout } from "../hooks/useAuth.ts";
@@ -15,6 +15,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: "/jobs", label: "İlanlar", icon: Briefcase, adminOnly: false },
   { to: "/users", label: "Kullanıcılar", icon: Users, adminOnly: true },
+  { to: "/audit", label: "Denetim", icon: ScrollText, adminOnly: true },
 ];
 
 interface SidebarProps {
