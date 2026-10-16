@@ -51,8 +51,10 @@ function toJobInput(job: Job): JobInput {
   };
 }
 
-const selectClass =
-  "h-10 w-full rounded-md border bg-surface px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+// Genişlik içermez: aynı öğeye w-full ile başka bir genişlik verilince w-full kazanıyordu.
+const fieldBaseClass =
+  "h-10 rounded-md border bg-surface px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+const selectClass = `${fieldBaseClass} w-full`;
 
 function FieldMessage({ error }: { error: string | undefined }) {
   return error === undefined ? null : <p className="mt-1 text-xs text-danger">{error}</p>;
@@ -247,7 +249,7 @@ function JobForm({ initial, submitLabel, cancelTo, error, pending, onSubmit }: J
                     onChange={(event) => {
                       setLanguage(index, { language: event.target.value });
                     }}
-                    className={`${selectClass} flex-1 ${getFieldError(error, `languages.${String(index)}`) === undefined ? "border-line-strong" : "border-danger"}`}
+                    className={`${fieldBaseClass} min-w-0 flex-1 ${getFieldError(error, `languages.${String(index)}`) === undefined ? "border-line-strong" : "border-danger"}`}
                   />
                   <select
                     aria-label={`Dil ${String(index + 1)} seviyesi`}
@@ -255,7 +257,7 @@ function JobForm({ initial, submitLabel, cancelTo, error, pending, onSubmit }: J
                     onChange={(event) => {
                       setLanguage(index, { level: event.target.value as LanguageLevel });
                     }}
-                    className={`${selectClass} w-24 border-line-strong`}
+                    className={`${fieldBaseClass} w-24 shrink-0 border-line-strong`}
                   >
                     {LANGUAGE_LEVELS.map((level) => (
                       <option key={level} value={level}>

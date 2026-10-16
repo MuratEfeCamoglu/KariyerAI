@@ -69,6 +69,22 @@ describe("JobFormPage", () => {
     });
   });
 
+  it("dil satırında seviye kutusu dil adını ezmez", async () => {
+    mockApi((_method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, recruiterUser);
+      return undefined;
+    });
+    renderRoute("/jobs/new");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Dil ekle" }));
+
+    // jsdom yerleşim hesaplamaz; w-full + w-24 çakışması dil adı kutusunu daraltıyordu.
+    const level = screen.getByLabelText("Dil 1 seviyesi");
+    expect(level.className.split(" ")).not.toContain("w-full");
+    expect(level).toHaveClass("w-24", "shrink-0");
+    expect(screen.getByLabelText("Dil 1")).toHaveClass("min-w-0", "flex-1");
+  });
+
   it("422 hatalarını alanların altında ve üstte özet olarak gösterir", async () => {
     mockApi((method, path) => {
       if (path === "/auth/me") return jsonResponse(200, recruiterUser);
