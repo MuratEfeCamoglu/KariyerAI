@@ -1,8 +1,10 @@
 from logging.config import fileConfig
+from typing import Any
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 
-from app.core.db import engine
+from app.core.db import UTCDateTime, engine
 from app.models import Base
 
 config = context.config
@@ -12,6 +14,13 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def render_item(type_: str, obj: Any, autogen_context: AutogenContext) -> str | bool:
+    # Migration dosyaları uygulama koduna bağlı kalmasın: özel tip düz DateTime olarak yazılır.
+    if type_ == "type" and isinstance(obj, UTCDateTime):
+        return "sa.DateTime(timezone=True)"
+    return False
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=str(engine.url),
@@ -19,6 +28,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
+        render_item=render_item,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -28,7 +38,10 @@ def run_migrations_online() -> None:
     with engine.connect() as connection:
         # SQLite'ın ALTER TABLE desteği sınırlı; batch modu tabloyu yeniden kurarak uygular.
         context.configure(
-            connection=connection, target_metadata=target_metadata, render_as_batch=True
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+            render_item=render_item,
         )
         with context.begin_transaction():
             context.run_migrations()

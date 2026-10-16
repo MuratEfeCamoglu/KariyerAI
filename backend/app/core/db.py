@@ -1,12 +1,39 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import DateTime, Dialect, Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.types import TypeDecorator
 
 from app.core.config import get_settings
+
+
+class UTCDateTime(TypeDecorator[datetime]):
+    """Zamanı UTC saklar ve UTC olarak döner.
+
+    SQLite saat dilimini saklamaz; bu tip olmadan API "2026-10-15T21:08:46" gibi bölgesiz
+    zaman döner ve tarayıcı onu yerel saat sanar.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        if value is not None and value.tzinfo is not None:
+            return value.astimezone(UTC)
+        return value
+
+    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
