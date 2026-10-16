@@ -15,6 +15,7 @@ dependencies = [
     "filetype>=1.2.0",
     "anthropic>=1.15.0",
     "google-genai>=2.31.0",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]

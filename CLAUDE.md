@@ -6,7 +6,7 @@
 - Agent yetkileri, yasaklar, görev döngüsü, "bitti" tanımı: @AGENT.md
 
 ## Teknoloji Yığını
-- **Backend:** Python 3.12, FastAPI (`fastapi[standard]`), SQLAlchemy 2 (sync), Alembic, SQLite (WAL), pydantic-settings, `anthropic` SDK, `google-genai` SDK (yalnızca geliştirme/eval, ücretsiz katman), pypdf, python-docx, filetype, bcrypt, PyJWT
+- **Backend:** Python 3.12, FastAPI (`fastapi[standard]`), SQLAlchemy 2 (sync), Alembic, SQLite (WAL), pydantic-settings, `anthropic` SDK, `google-genai` SDK ve Groq (`httpx` ile; yalnızca geliştirme/eval, ücretsiz katman), httpx, pypdf, python-docx, filetype, bcrypt, PyJWT
 - **Frontend:** Node 24 LTS, React 19, TypeScript (strict), Vite, Tailwind CSS 4, TanStack Query 5, React Router 7, `lucide-react` (ikonlar), `@fontsource/inter` (font)
 - **Arayüz tasarımı:** docs/TASARIM.md (token'lar, bileşenler, sayfalar)
 - **Test:** pytest + httpx TestClient (backend), Vitest + Testing Library (frontend)
@@ -23,7 +23,7 @@ Backend (`backend/` içinde):
 - Lint/format: `uv run ruff check .` ve `uv run ruff format --check .`
 - Tip kontrolü: `uv run mypy app`
 - Migration oluştur: `uv run alembic revision --autogenerate -m "add_jobs_table"` (mesaj snake_case, İngilizce)
-- AI değerlendirme (gerçek API anahtarı ister): `uv run python -m evals.run` (Gemini ile: `--provider gemini`)
+- AI değerlendirme (gerçek API anahtarı ister): `uv run python -m evals.run` (Gemini/Groq ile: `--provider gemini|groq --delay 15`)
 
 Frontend (`frontend/` içinde):
 - Kurulum: `npm install`
@@ -39,10 +39,11 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 ## Ortam Değişkenleri (`backend/.env`)
 - `DATABASE_URL=sqlite:///./data/kariyerai.db`
 - `JWT_SECRET` — en az 32 karakter, repoya girmez
-- `LLM_PROVIDER=anthropic|gemini|fake` — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. `gemini` (ücretsiz katman) **yalnızca sentetik CV'lerle** kullanılır, gerçek aday verisiyle kullanılmaz (KVKK).
+- `LLM_PROVIDER=anthropic|gemini|groq|fake` — `.env.example`'da varsayılan `fake` (anahtarsız çalışır); testlerde her zaman `fake`. `gemini` ve `groq` (ücretsiz katman) **yalnızca sentetik CV'lerle** kullanılır, gerçek aday verisiyle kullanılmaz (KVKK).
 - `ANTHROPIC_API_KEY` — yalnızca `.env`'de
 - `LLM_MODEL=claude-sonnet-5-5`
 - `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash`
+- `GROQ_API_KEY` — yalnızca `.env`'de; `GROQ_MODEL=openai/gpt-oss-120b`
 - `UPLOAD_DIR=./data/uploads`
 - `COOKIE_SECURE=false` — canlıda (HTTPS arkasında) `true`; `true` iken `.env.example`'daki örnek `JWT_SECRET` ile uygulama başlamaz
 
