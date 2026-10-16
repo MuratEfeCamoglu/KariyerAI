@@ -1,10 +1,12 @@
-import { CircleAlert, Download, Info } from "lucide-react";
-import type { ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { CircleAlert, Download, Info, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { cvDownloadUrl } from "../api/applications.ts";
 import { ApiError } from "../api/client.ts";
 import { BandBadge } from "../components/BandBadge.tsx";
+import { Button } from "../components/Button.tsx";
+import { ConfirmDeleteModal } from "../components/ConfirmDeleteModal.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { NotesPanel } from "../components/NotesPanel.tsx";
 import { ProcessingBadge } from "../components/ProcessingBadge.tsx";
@@ -13,7 +15,7 @@ import { ScoreBreakdown } from "../components/ScoreBreakdown.tsx";
 import { ScoreRing } from "../components/ScoreRing.tsx";
 import { StatusHistory } from "../components/StatusHistory.tsx";
 import { StatusSelect } from "../components/StatusSelect.tsx";
-import { useApplication, useChangeStatus } from "../hooks/useApplications.ts";
+import { useApplication, useChangeStatus, useDeleteCandidate } from "../hooks/useApplications.ts";
 import { useCurrentUser } from "../hooks/useAuth.ts";
 import { AI_DISCLAIMER, EDUCATION_LABELS } from "../lib/constants.ts";
 import type { ApplicationDetail } from "../types/application.ts";
@@ -155,6 +157,9 @@ export function ApplicationDetailPage() {
   const id = Number(useParams().id);
   const application = useApplication(id);
   const changeStatus = useChangeStatus(id);
+  const deleteCandidate = useDeleteCandidate();
+  const navigate = useNavigate();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
   if (application.isPending) {
@@ -230,8 +235,39 @@ export function ApplicationDetailPage() {
               {statusError}
             </p>
           )}
+          {currentUser?.role === "admin" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-danger"
+              onClick={() => {
+                setConfirmingDelete(true);
+              }}
+            >
+              <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+              Adayı sil (KVKK)
+            </Button>
+          )}
         </div>
       </header>
+
+      {confirmingDelete && (
+        <ConfirmDeleteModal
+          candidateId={candidate.id}
+          pending={deleteCandidate.isPending}
+          error={deleteCandidate.error}
+          onClose={() => {
+            setConfirmingDelete(false);
+          }}
+          onConfirm={() => {
+            deleteCandidate.mutate(candidate.id, {
+              onSuccess: () => {
+                void navigate(`/jobs/${String(detail.job.id)}`, { replace: true });
+              },
+            });
+          }}
+        />
+      )}
 
       {/* AGENT.md: bu uyarı kaldırılamaz; sayfa kaydırılsa da görünür kalır. */}
       <div

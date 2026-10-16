@@ -3,9 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import AdminUser, CurrentUser, DbSession
 from app.core.errors import NotFoundError
 from app.models import Candidate
+from app.services import candidates as candidates_service
 from app.storage.files import FileStorage, get_storage
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -38,3 +39,13 @@ def download_cv(
         content_disposition_type="attachment",
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@router.delete("/{candidate_id}", status_code=204)
+def delete_candidate(
+    candidate_id: int,
+    admin: AdminUser,
+    db: DbSession,
+    storage: Annotated[FileStorage, Depends(get_storage)],
+) -> None:
+    candidates_service.delete_candidate(db, storage, candidate_id=candidate_id, actor_id=admin.id)

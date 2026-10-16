@@ -60,3 +60,8 @@ export function deleteNote(noteId: number): Promise<void> {
 export function cvDownloadUrl(candidateId: number): string {
   return `/api/candidates/${String(candidateId)}/cv`;
 }
+
+/** F11 (KVKK): yalnızca admin; aday, başvuruları, notları ve CV dosyası kalıcı olarak silinir. */
+export function deleteCandidate(candidateId: number): Promise<void> {
+  return apiFetch<undefined>(`/candidates/${String(candidateId)}`, { method: "DELETE" });
+}

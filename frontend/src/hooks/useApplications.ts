@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   addNote,
   changeStatus,
+  deleteCandidate,
   deleteNote,
   getApplication,
   listApplications,
@@ -98,5 +99,13 @@ export function useDeleteNote(applicationId: number) {
   return useMutation({
     mutationFn: deleteNote,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: detailKey(applicationId) }),
+  });
+}
+
+export function useDeleteCandidate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteCandidate,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: jobKeys.all }),
   });
 }

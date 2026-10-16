@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, FieldValidationError
+from app.core.errors import ConflictError, FieldValidationError, NotFoundError
 from app.models import Application, Candidate, JobStatus, ProcessingStatus
 from app.services import audit
 from app.services.cv_extract import (
@@ -164,3 +164,28 @@ def upload_cvs(
             storage.delete(name)
         raise
     return results
+
+
+def delete_candidate(
+    db: Session, storage: FileStorage, *, candidate_id: int, actor_id: int
+) -> None:
+    """F11 (KVKK): aday kaydı, tüm başvuruları, notları ve CV dosyası kalıcı olarak silinir.
+
+    Başvurular ve notlar veritabanında ON DELETE CASCADE ile silinir. Audit kaydına yalnızca
+    "aday #id silindi" yazılır; ad, e-posta, dosya adı gibi kişisel veri yazılmaz.
+    """
+    candidate = db.get(Candidate, candidate_id)
+    if candidate is None:
+        raise NotFoundError("Aday bulunamadı")
+    stored_path = candidate.stored_path
+    db.delete(candidate)
+    audit.record(
+        db,
+        actor_id=actor_id,
+        action="candidate.delete",
+        entity_type="candidate",
+        entity_id=candidate_id,
+    )
+    db.commit()
+    # Dosya, kayıt silindikten sonra silinir: DB işlemi başarısız olursa dosya kaybolmasın.
+    storage.delete(stored_path)

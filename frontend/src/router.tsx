@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 
 import { AppLayout } from "./components/AppLayout.tsx";
+import { RouteError } from "./components/RouteError.tsx";
 import { RequireAdmin } from "./components/RequireAdmin.tsx";
 import { RequireAuth } from "./components/RequireAuth.tsx";
 import { ApplicationDetailPage } from "./pages/ApplicationDetailPage.tsx";
@@ -12,30 +13,36 @@ import { LoginPage } from "./pages/LoginPage.tsx";
 import { UsersPage } from "./pages/UsersPage.tsx";
 
 export const routes: RouteObject[] = [
-  { path: "/login", element: <LoginPage /> },
   {
-    element: <RequireAuth />,
+    // Beklenmeyen hatada boş ekran yerine anlaşılır mesaj.
+    errorElement: <RouteError />,
     children: [
+      { path: "/login", element: <LoginPage /> },
       {
-        element: <AppLayout />,
+        element: <RequireAuth />,
         children: [
-          { path: "/jobs", element: <JobsPage /> },
-          { path: "/jobs/new", element: <JobFormPage /> },
-          { path: "/jobs/:id", element: <JobDetailPage /> },
-          { path: "/jobs/:id/edit", element: <JobFormPage /> },
-          { path: "/applications/:id", element: <ApplicationDetailPage /> },
           {
-            element: <RequireAdmin />,
+            element: <AppLayout />,
             children: [
-              { path: "/users", element: <UsersPage /> },
-              { path: "/audit", element: <AuditPage /> },
+              { path: "/jobs", element: <JobsPage /> },
+              { path: "/jobs/new", element: <JobFormPage /> },
+              { path: "/jobs/:id", element: <JobDetailPage /> },
+              { path: "/jobs/:id/edit", element: <JobFormPage /> },
+              { path: "/applications/:id", element: <ApplicationDetailPage /> },
+              {
+                element: <RequireAdmin />,
+                children: [
+                  { path: "/users", element: <UsersPage /> },
+                  { path: "/audit", element: <AuditPage /> },
+                ],
+              },
             ],
           },
         ],
       },
+      { path: "*", element: <Navigate to="/jobs" replace /> },
     ],
   },
-  { path: "*", element: <Navigate to="/jobs" replace /> },
 ];
 
 export const router = createBrowserRouter(routes);

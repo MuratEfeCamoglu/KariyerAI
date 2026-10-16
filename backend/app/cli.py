@@ -4,12 +4,15 @@ import sys
 
 from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.core.errors import ConflictError
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.schemas.user import Password
+from app.services import demo
 from app.services import users as users_service
+from app.storage.files import get_storage
 
 _password_adapter: TypeAdapter[str] = TypeAdapter(Password)
 
@@ -47,16 +50,45 @@ def create_admin(email: str, full_name: str) -> int:
     return 0
 
 
+def seed_demo(applications: int) -> int:
+    with SessionLocal() as db:
+        owner = db.scalar(
+            select(User).where(User.role == UserRole.ADMIN, User.is_active).order_by(User.id)
+        )
+        if owner is None:
+            print("Önce bir yönetici oluşturun: python -m app.cli create-admin", file=sys.stderr)
+            return 1
+        result = demo.seed_demo(db, get_storage(), owner_id=owner.id, applications=applications)
+    print(
+        f"Demo ilanı oluşturuldu (id={result.job_id}), "
+        f"{result.application_count} sentetik başvuru eklendi."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
     admin_parser = commands.add_parser("create-admin", help="İlk yönetici hesabını oluşturur")
     admin_parser.add_argument("--email", required=True)
     admin_parser.add_argument("--name", default="Yönetici", help="Görünen ad")
+    seed_parser = commands.add_parser(
+        "seed-demo", help="Demo ilanı ve sentetik başvurular (LLM çağrısı yapmaz)"
+    )
+    seed_parser.add_argument(
+        "--applications",
+        type=int,
+        default=20,
+        help="Başvuru sayısı (performans ölçümü için 500)",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "create-admin":
         return create_admin(args.email, args.name)
+    if args.command == "seed-demo":
+        if args.applications < 1:
+            parser.error("--applications en az 1 olmalı")
+        return seed_demo(args.applications)
     return 2
 
 
