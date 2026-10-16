@@ -1,0 +1,19 @@
+Aiko Tanaka
+Mobile Developer (iOS & Android)
+aiko.tanaka@example.com, +1 555 010 0606
+
+About me
+Mobile developer who has published nine apps with over two million combined downloads.
+
+Experience
+Lead Mobile Developer — Sample Fitness Inc. (May 2022 – present)
+Rewrote the iOS app in Swift and SwiftUI. Built the Android app with Kotlin and Jetpack Compose. Push notifications, analytics and remote config run on Firebase. Automated store releases with Fastlane.
+
+Mobile Developer — Example Studio (Jul 2018 – Apr 2022)
+Maintained client apps written in Objective-C and Swift; introduced unit testing with XCTest and raised crash-free sessions to 99.8%.
+
+Education
+B.S. Computer Science, Example State University (2018)
+
+Languages
+Japanese (native), English (fluent)

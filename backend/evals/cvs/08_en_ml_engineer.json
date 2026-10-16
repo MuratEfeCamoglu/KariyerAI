@@ -1,0 +1,4 @@
+{
+  "skills": ["NLP", "PyTorch", "Hugging Face Transformers", "MLflow", "Spark", "SQL", "scikit-learn", "TensorFlow"],
+  "languages": [{"language": "English", "level": "C2"}, {"language": "Hindi", "level": "C2"}, {"language": "French", "level": "A2"}]
+}

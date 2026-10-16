@@ -12,7 +12,13 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.llm.base import LLMClient, LLMError
+from app.llm.base import (
+    PARSE_PROMPT_VERSION,
+    LLMClient,
+    LLMError,
+    LLMOutputError,
+    LLMRefusalError,
+)
 from app.llm.factory import get_llm_client
 from app.models import Application, Candidate, ProcessingStatus
 from app.schemas.parsed_cv import ParsedCV
@@ -26,9 +32,12 @@ SessionFactory = sessionmaker[Session]
 _llm_slots = threading.Semaphore(5)
 
 PARSE_FAILED = "Ayrıştırma başarısız"
+# Sıra önemli: alt sınıflar (LLMOutputError, LLMRefusalError) genel LLMError'dan önce gelir.
 _PARSE_ERROR_MESSAGES: dict[type[Exception], str] = {
-    LLMError: "Ayrıştırma servisine ulaşılamadı",
+    LLMRefusalError: "AI bu CV'yi işlemedi",
+    LLMOutputError: "AI çıktısı beklenen biçimde değil",
     ValidationError: "AI çıktısı beklenen biçimde değil",
+    LLMError: "Ayrıştırma servisine ulaşılamadı",
 }
 
 
@@ -85,7 +94,10 @@ def _parse_candidate(
             ):
                 application.score_status = ProcessingStatus.FAILED
                 application.score_error = PARSE_FAILED
-        payload: dict[str, str] = {"status": candidate.parse_status.value}
+        payload: dict[str, str] = {
+            "status": candidate.parse_status.value,
+            "prompt": PARSE_PROMPT_VERSION,
+        }
         if model_name is not None:
             payload["model"] = model_name
         audit.record(

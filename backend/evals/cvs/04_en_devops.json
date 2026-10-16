@@ -1,0 +1,4 @@
+{
+  "skills": ["AWS", "Terraform", "Kubernetes", "Docker", "Prometheus", "Grafana", "Linux", "Bash", "Ansible", "Jenkins"],
+  "languages": [{"language": "English", "level": "C1"}, {"language": "German", "level": "B2"}]
+}

@@ -1,0 +1,23 @@
+MAYA ROSSI
+Frontend Engineer
+maya.rossi@example.com | +44 7700 900123 | linkedin.example.com/in/mayarossi
+
+SUMMARY
+Frontend engineer focused on accessible, fast web applications. Five years shipping React products used by millions.
+
+EXPERIENCE
+Senior Frontend Engineer, Sample Commerce Ltd — Jan 2022 to Present
+• Rebuilt the checkout in React and TypeScript, cutting bundle size by 40%.
+• Migrated the marketing site to Next.js with server-side rendering.
+• Introduced a design system in Tailwind CSS, working closely with designers in Figma.
+• Led an accessibility audit and fixed issues to meet WCAG 2.1 AA.
+
+Frontend Developer, Placeholder Media — Sep 2019 to Dec 2021
+• Built dashboards consuming a GraphQL API.
+• Raised unit test coverage from 20% to 85% with Jest and React Testing Library.
+
+EDUCATION
+BSc Software Engineering, Example University, 2019
+
+LANGUAGES
+English (native), Spanish (intermediate)

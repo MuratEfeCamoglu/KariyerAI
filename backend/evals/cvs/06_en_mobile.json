@@ -1,0 +1,4 @@
+{
+  "skills": ["Swift", "SwiftUI", "Kotlin", "Jetpack Compose", "Firebase", "Fastlane", "Objective-C", "XCTest"],
+  "languages": [{"language": "Japanese", "level": "C2"}, {"language": "English", "level": "C1"}]
+}

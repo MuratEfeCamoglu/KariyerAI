@@ -1,0 +1,21 @@
+PRIYA NAIR, PhD
+Machine Learning Engineer
+priya.nair@example.com | +91 90000 08080
+
+Research and production experience in natural language processing (NLP) and recommendation systems.
+
+PROFESSIONAL EXPERIENCE
+Machine Learning Engineer — Example Search Co. — 2021-10 to present
+- Train and serve ranking models in PyTorch; fine-tuned transformer models with Hugging Face Transformers for query understanding.
+- Track experiments and model versions in MLflow.
+- Build feature pipelines on Apache Spark over 5 TB of click logs and validate data with SQL.
+
+Research Assistant — Sample University AI Lab — 2017-09 to 2021-08
+- Built text classification baselines with scikit-learn and TensorFlow; published three NLP papers.
+
+EDUCATION
+PhD in Computer Science (NLP), Sample University, 2021
+MSc in Computer Science, Sample University, 2017
+
+LANGUAGES
+English – C2 · Hindi – native · French – A2

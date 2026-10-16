@@ -1,0 +1,22 @@
+Kaan Yıldırım
+kaan.yildirim@example.com · +90 555 000 01 01 · İstanbul
+
+Profil
+Yüksek trafikli ödeme sistemleri üzerinde yedi yıllık deneyime sahip backend geliştirici.
+
+İş Deneyimi
+Kıdemli Backend Geliştirici — Örnek Ödeme Teknolojileri A.Ş. (Mart 2021 – halen)
+- Python ve FastAPI ile günde 3 milyon isteği karşılayan REST API'ler tasarladı.
+- PostgreSQL sorgularını optimize ederek rapor sürelerini %60 azalttı; önbellek katmanında Redis kullandı.
+- Servisleri Docker imajlarına taşıdı ve Kubernetes üzerinde çalışır hale getirdi.
+
+Backend Geliştirici — Deneme Yazılım Ltd. (Haziran 2017 – Şubat 2021)
+- Django tabanlı müşteri portalını geliştirdi ve bakımını yaptı.
+- GitLab CI ile otomatik test ve dağıtım hatları kurdu.
+
+Eğitim
+Bilgisayar Mühendisliği Lisans, Örnek Teknik Üniversitesi, 2017
+
+Diller
+İngilizce — B2
+Türkçe — anadil

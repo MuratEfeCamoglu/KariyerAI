@@ -35,6 +35,16 @@ npm install
 npm run dev     # http://localhost:5173 — /api istekleri :8000'e proxy'lenir
 ```
 
+## AI ayrıştırma değerlendirmesi
+
+`backend/evals/cvs/` altında 10 sentetik CV ve elle etiketlenmiş beklenen beceriler vardır.
+Gerçek Claude API'si ile beceri recall'unu (hedef ≥ %80) ve ayrıştırma süresini (p95 ≤ 30 sn) ölçer:
+
+```bash
+# backend/ içinde; ANTHROPIC_API_KEY gerekir, ücretlidir (10 API çağrısı + olası yeniden denemeler)
+uv run python -m evals.run
+```
+
 ## Doğrulama
 
 ```bash

@@ -1,0 +1,23 @@
+Daniel Okafor — Site Reliability / DevOps Engineer
+daniel.okafor@example.com · +49 151 0000 0404
+
+Profile
+Infrastructure engineer with eight years of experience automating cloud platforms and keeping production systems reliable.
+
+Work history
+2020-04 – present  DevOps Lead, Example Logistics GmbH
+  Manage 300+ services on AWS (EKS, RDS, S3). All infrastructure is defined in Terraform.
+  Run Kubernetes clusters and container builds with Docker; on-call rotation owner.
+  Built observability with Prometheus and Grafana, reducing mean time to recovery by half.
+
+2016-02 – 2020-03  Systems Engineer, Placeholder Hosting
+  Administered Linux servers, wrote Bash tooling, and configured hosts with Ansible.
+  Maintained the Jenkins pipelines for 40 product teams.
+
+Education
+BEng Computer Systems, Sample Institute of Technology, 2015
+
+Certifications
+AWS Certified Solutions Architect – Professional; Certified Kubernetes Administrator (CKA)
+
+Languages: English C1, German B2

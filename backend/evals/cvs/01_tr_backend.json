@@ -1,0 +1,4 @@
+{
+  "skills": ["Python", "FastAPI", "REST API", "PostgreSQL", "Redis", "Docker", "Kubernetes", "Django", "GitLab CI"],
+  "languages": [{"language": "İngilizce", "level": "B2"}, {"language": "Türkçe", "level": "C2"}]
+}

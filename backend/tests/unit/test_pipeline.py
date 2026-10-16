@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.llm.base import LLMError
+from app.llm.base import LLMError, LLMOutputError, LLMRefusalError
 from app.llm.fake_client import FakeLLMClient
 from app.models import (
     Application,
@@ -58,6 +58,20 @@ class _FailingLLM:
         raise LLMError("bağlantı hatası")
 
 
+class _RefusingLLM:
+    model_name = "refusing"
+
+    def parse_cv(self, cv_text: str) -> dict[str, Any]:
+        raise LLMRefusalError("reddedildi")
+
+
+class _TruncatingLLM:
+    model_name = "truncating"
+
+    def parse_cv(self, cv_text: str) -> dict[str, Any]:
+        raise LLMOutputError("kesik")
+
+
 class _InvalidLLM:
     model_name = "invalid"
 
@@ -84,7 +98,7 @@ def test_successful_parse_stores_parsed_cv_and_contact_fields(
     # Puanlama Aşama 5'te eklenir; ayrıştırma bitince başvuru puan beklemeye devam eder.
     assert stored.score_status is ProcessingStatus.PENDING
     entry = db.scalars(select(AuditLog).where(AuditLog.action == "cv.parse")).one()
-    assert entry.payload == {"status": "done", "model": "fake"}
+    assert entry.payload == {"status": "done", "prompt": "parse_v1", "model": "fake"}
 
 
 @pytest.mark.parametrize(
@@ -92,6 +106,8 @@ def test_successful_parse_stores_parsed_cv_and_contact_fields(
     [
         (_FailingLLM, "Ayrıştırma servisine ulaşılamadı"),
         (_InvalidLLM, "AI çıktısı beklenen biçimde değil"),
+        (_TruncatingLLM, "AI çıktısı beklenen biçimde değil"),
+        (_RefusingLLM, "AI bu CV'yi işlemedi"),
     ],
 )
 def test_parse_failure_marks_candidate_and_application_failed(

@@ -1,0 +1,21 @@
+Lucas Moreau
+QA Automation Engineer · ISTQB Certified
+lucas.moreau@example.com — +33 6 00 00 10 10
+
+Summary
+Test automation engineer who builds reliable end-to-end and API test suites for SaaS products.
+
+Experience
+QA Automation Engineer | Example Analytics SAS | 03/2021 – present
+- Designed the end-to-end suite in Playwright and migrated legacy Selenium tests written in Java.
+- Covered 400+ REST endpoints with Postman collections run in CI.
+- Ran load tests with JMeter before every major release.
+
+QA Engineer | Placeholder Travel | 01/2019 – 02/2021
+- Wrote Cypress tests for the booking flow and managed test cases in TestRail.
+
+Education
+Licence Professionnelle in Software Quality, Example University, 2018
+
+Languages
+French – native; English – B2

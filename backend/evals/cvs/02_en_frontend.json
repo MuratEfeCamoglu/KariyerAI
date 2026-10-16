@@ -1,0 +1,4 @@
+{
+  "skills": ["React", "TypeScript", "Next.js", "Tailwind CSS", "Figma", "WCAG", "GraphQL", "Jest", "React Testing Library"],
+  "languages": [{"language": "English", "level": "C2"}, {"language": "Spanish", "level": "B1"}]
+}
