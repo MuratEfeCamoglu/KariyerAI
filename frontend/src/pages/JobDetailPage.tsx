@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { ApiError } from "../api/client.ts";
+import { ApplicationsTable } from "../components/ApplicationsTable.tsx";
 import { Button } from "../components/Button.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { JobStatusBadge } from "../components/JobStatusBadge.tsx";
@@ -179,12 +180,11 @@ export function JobDetailPage() {
           <span className="text-sm text-ink-muted">{data.application_count} başvuru</span>
         </div>
         <UploadDropzone jobId={id} disabled={data.status === "closed"} />
-        {data.application_count === 0 && (
-          <div className="mt-4">
-            <EmptyState title="Henüz başvuru yok" description="CV yükleyerek başlayın." />
-          </div>
-        )}
       </section>
+
+      <div className="mt-8">
+        <ApplicationsTable jobId={id} />
+      </div>
 
       {confirmingDelete && (
         <DeleteJobModal

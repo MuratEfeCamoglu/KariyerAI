@@ -95,7 +95,16 @@ def create_job(db: Session, *, data: dict[str, Any], actor_id: int) -> Job:
     return job
 
 
-def update_job(db: Session, *, job_id: int, changes: dict[str, Any], actor_id: int) -> Job:
+@dataclass(frozen=True)
+class JobUpdateResult:
+    job: Job
+    # F6f: yalnızca kriter alanları değiştiyse başvurular yeniden puanlanır (başlık/açıklama değil).
+    criteria_changed: bool
+
+
+def update_job(
+    db: Session, *, job_id: int, changes: dict[str, Any], actor_id: int
+) -> JobUpdateResult:
     job = get_job(db, job_id)
     _check_skill_overlap(
         changes.get("required_skills", job.required_skills),
@@ -118,7 +127,7 @@ def update_job(db: Session, *, job_id: int, changes: dict[str, Any], actor_id: i
             payload={"fields": changed_fields, "status": job.status.value},
         )
     db.commit()
-    return job
+    return JobUpdateResult(job=job, criteria_changed=bool(CRITERIA_FIELDS & set(changed_fields)))
 
 
 def delete_job(db: Session, *, job_id: int, actor_id: int) -> None:

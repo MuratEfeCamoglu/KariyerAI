@@ -6,13 +6,28 @@ const BAND_CLASSES: Record<ScoreBand, string> = {
   low: "bg-band-low-bg text-band-low-text",
 };
 
+interface BandBadgeProps {
+  score: number | null;
+  /** true: bant adını ("Yüksek uyum") gösterir; false: puanı bant renginde gösterir. */
+  label?: boolean;
+}
+
 /** Puanı bant renginde gösterir; puan yoksa nötr tire. */
-export function BandBadge({ score }: { score: number | null }) {
+export function BandBadge({ score, label = false }: BandBadgeProps) {
   if (score === null) {
     return <span className="text-ink-subtle">—</span>;
   }
   const rounded = Math.round(score);
   const band = scoreBand(rounded);
+  if (label) {
+    return (
+      <span
+        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${BAND_CLASSES[band]}`}
+      >
+        {SCORE_BAND_LABELS[band]}
+      </span>
+    );
+  }
   return (
     <span
       title={SCORE_BAND_LABELS[band]}

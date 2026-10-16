@@ -1,3 +1,4 @@
+import type { ApplicationStatus, ProcessingStatus } from "../types/application.ts";
 import type { EducationLevel, JobStatus, LanguageLevel } from "../types/job.ts";
 import type { UserRole } from "../types/user.ts";
 
@@ -76,3 +77,45 @@ export function scoreBand(score: number): ScoreBand {
 }
 
 export const AI_DISCLAIMER = "Bu puan bir öneridir; karar İK uzmanına aittir.";
+
+export const APPLICATION_STATUS_OPTIONS: ApplicationStatus[] = [
+  "new",
+  "reviewing",
+  "shortlisted",
+  "interview",
+  "hired",
+  "rejected",
+];
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  new: "Yeni",
+  reviewing: "İnceleniyor",
+  shortlisted: "Kısa liste",
+  interview: "Mülakat",
+  hired: "İşe alındı",
+  rejected: "Reddedildi",
+};
+
+/** TASARIM.md §2; "Mülakat" için #F5F3FF/#5B21B6 = Tailwind tema token'ları violet-50/violet-800. */
+export const APPLICATION_STATUS_CLASSES: Record<ApplicationStatus, string> = {
+  new: "bg-info-bg text-info",
+  reviewing: "bg-brand-50 text-brand-700",
+  shortlisted: "bg-accent-50 text-accent-700",
+  interview: "bg-violet-50 text-violet-800",
+  hired: "bg-band-high-bg text-band-high-text",
+  rejected: "bg-fill-muted text-ink-muted",
+};
+
+export const PROCESSING_STATUS_LABELS: Record<ProcessingStatus, string> = {
+  pending: "Kuyrukta",
+  processing: "İşleniyor",
+  done: "Tamamlandı",
+  failed: "Başarısız",
+};
+
+export const PROCESSING_STATUS_OPTIONS: ProcessingStatus[] = [
+  "pending",
+  "processing",
+  "done",
+  "failed",
+];

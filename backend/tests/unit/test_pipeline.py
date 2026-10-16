@@ -95,8 +95,9 @@ def test_successful_parse_stores_parsed_cv_and_contact_fields(
     assert (candidate.full_name, candidate.email) == ("Deniz Arslan", "deniz.arslan@example.com")
     stored = db.get(Application, application.id)
     assert stored is not None
-    # Puanlama Aşama 5'te eklenir; ayrıştırma bitince başvuru puan beklemeye devam eder.
-    assert stored.score_status is ProcessingStatus.PENDING
+    # Ayrıştırmanın ardından aynı iş puanlamayı da yapar (§3.1).
+    assert stored.score_status is ProcessingStatus.DONE
+    assert stored.score == 100
     entry = db.scalars(select(AuditLog).where(AuditLog.action == "cv.parse")).one()
     assert entry.payload == {"status": "done", "prompt": "parse_v1", "model": "fake"}
 
@@ -152,14 +153,47 @@ def test_requeue_finds_pending_and_interrupted_work(
 ) -> None:
     pending = _application(db, recruiter, ProcessingStatus.PENDING)
     interrupted = _application(db, recruiter, ProcessingStatus.PROCESSING)
-    _application(db, recruiter, ProcessingStatus.DONE)
-    _application(db, recruiter, ProcessingStatus.FAILED)
+    parsed_not_scored = _application(db, recruiter, ProcessingStatus.DONE)
+    scoring_interrupted = _application(db, recruiter, ProcessingStatus.DONE)
+    scoring_interrupted.score_status = ProcessingStatus.PROCESSING
+    finished = _application(db, recruiter, ProcessingStatus.DONE)
+    finished.score_status = ProcessingStatus.DONE
+    failed = _application(db, recruiter, ProcessingStatus.FAILED)
+    failed.score_status = ProcessingStatus.FAILED
+    db.commit()
 
-    assert pipeline.requeue_unfinished(session_factory) == [pending.id, interrupted.id]
+    requeued = pipeline.requeue_unfinished(session_factory)
+
+    assert requeued == [pending.id, interrupted.id, parsed_not_scored.id, scoring_interrupted.id]
+    db.expire_all()
+    for application_id in requeued:
+        stored = db.get(Application, application_id)
+        assert stored is not None
+        assert stored.score_status is ProcessingStatus.DONE
+
+
+def test_stale_score_is_discarded_when_criteria_change_mid_scoring(
+    db: Session, session_factory: sessionmaker[Session], recruiter: User
+) -> None:
+    application = _application(db, recruiter, ProcessingStatus.DONE)
+    application_id = application.id
+
+    class _RescoreDuringScoring(FakeLLMClient):
+        def score_cv(
+            self, anonymized_cv: str, criteria: list[dict[str, str]], profile: dict[str, Any]
+        ) -> dict[str, Any]:
+            # Puanlama sürerken kullanıcı ilan kriterlerini değiştirdi (F6f).
+            with session_factory() as other:
+                stored = other.get(Application, application_id)
+                assert stored is not None
+                stored.score_status = ProcessingStatus.PENDING
+                other.commit()
+            return super().score_cv(anonymized_cv, criteria, profile)
+
+    pipeline.process_application(application_id, session_factory, _RescoreDuringScoring)
 
     db.expire_all()
-    statuses = {
-        db.get(Candidate, app.candidate_id).parse_status  # type: ignore[union-attr]
-        for app in (pending, interrupted)
-    }
-    assert statuses == {ProcessingStatus.DONE}
+    stored = db.get(Application, application_id)
+    assert stored is not None
+    assert stored.score is None
+    assert stored.score_status is ProcessingStatus.PENDING

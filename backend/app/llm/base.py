@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -6,6 +7,9 @@ from typing import Any, Protocol
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 PARSE_PROMPT_VERSION = "parse_v1"
+SCORE_PROMPT_VERSION = "score_v1"
+
+_PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
 class LLMError(Exception):
@@ -27,11 +31,9 @@ class Prompt:
     user_template: str
 
     def render_user(self, **values: str) -> str:
-        # str.format kullanılmaz: CV metnindeki "{" "}" karakterleri biçimlendirmeyi bozar.
-        text = self.user_template
-        for key, value in values.items():
-            text = text.replace("{" + key + "}", value)
-        return text
+        # Tek geçişte yalnızca şablondaki yer tutucular doldurulur: str.format CV'deki "{" "}"
+        # ile bozulur; sırayla replace ise bir değerin içindeki "{cv_text}" metnini de doldururdu.
+        return _PLACEHOLDER.sub(lambda m: values.get(m[1], m[0]), self.user_template)
 
 
 @cache
@@ -131,6 +133,45 @@ PARSED_CV_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
+def render_score_input(
+    prompt: Prompt, anonymized_cv: str, criteria: list[dict[str, str]], profile: dict[str, Any]
+) -> str:
+    """score_v1 kullanıcı mesajı; sağlayıcıdan bağımsız, aynı girdi aynı metni üretir."""
+    return prompt.render_user(
+        criteria=json.dumps(criteria, ensure_ascii=False, indent=2),
+        profile=json.dumps(profile, ensure_ascii=False, indent=2),
+        cv_text=anonymized_cv,
+    )
+
+
+# Puanlama çıktısı: kriter başına karşılandı mı + kanıt; sayı alanı yoktur (F6b, puan kodda).
+SCORE_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["criteria", "summary"],
+    "properties": {
+        "criteria": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "met", "evidence", "candidate_level"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "met": {"type": "boolean"},
+                    "evidence": _NULLABLE_STRING,
+                    "candidate_level": {
+                        "type": ["string", "null"],
+                        "enum": ["A1", "A2", "B1", "B2", "C1", "C2", None],
+                    },
+                },
+            },
+        },
+        "summary": {"type": "string"},
+    },
+}
+
+
 def parse_json_object(text: str | None) -> dict[str, Any]:
     """Modelin metin çıktısını JSON nesnesine çevirir; kullanılamazsa LLMOutputError."""
     if text is None:
@@ -152,4 +193,10 @@ class LLMClient(Protocol):
 
     def parse_cv(self, cv_text: str) -> dict[str, Any]:
         """CV metninden ParsedCV biçiminde ham JSON döner; doğrulama çağıranın işidir."""
+        ...
+
+    def score_cv(
+        self, anonymized_cv: str, criteria: list[dict[str, str]], profile: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Kriter başına {id, met, evidence, candidate_level} + Türkçe özet döner; puan üretmez."""
         ...

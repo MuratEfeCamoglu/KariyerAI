@@ -277,7 +277,8 @@ def test_job_stats_and_delete_conflict_after_upload(
     listed = recruiter_client.get("/api/jobs").json()[0]
     detail = recruiter_client.get(f"/api/jobs/{job_id}").json()
     assert listed["application_count"] == detail["application_count"] == 2
-    assert listed["top_score"] is None  # Puanlama Aşama 5'te.
+    # İlan "Python" istiyor; iki fixture CV de Python içeriyor ve arka planda puanlanmış olmalı.
+    assert listed["top_score"] == detail["top_score"] == 100
 
     response = recruiter_client.delete(f"/api/jobs/{job_id}")
     assert response.status_code == 409
