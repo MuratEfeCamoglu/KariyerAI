@@ -49,7 +49,7 @@ describe("AuditPage", () => {
     expect(await screen.findByText("Durum değişikliği", { selector: "td" })).toBeInTheDocument();
     expect(screen.getByText("Sistem")).toBeInTheDocument();
     expect(
-      screen.getByText("status: done · score: 73 · model: fake · prompt: score_v1"),
+      screen.getByText("durum: Tamamlandı · puan: 73 · model: fake · prompt: score_v1"),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Denetim" })).toBeInTheDocument();
 

@@ -213,7 +213,7 @@ export function UsersPage() {
                             body: { role: event.target.value as UserRole },
                           });
                         }}
-                        className="h-8 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
+                        className="h-8 min-w-36 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
                       >
                         {ROLE_OPTIONS.map((option) => (
                           <option key={option} value={option}>

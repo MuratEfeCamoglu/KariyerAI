@@ -25,7 +25,8 @@ from app.models import (
     ProcessingStatus,
 )
 from app.schemas.parsed_cv import CvLanguage, Education, Experience, ParsedCV
-from app.services import scoring
+from app.services import audit, scoring
+from app.services.applications import STATUS_CHANGE_ACTION
 from app.services.experience import total_experience_years
 from app.storage.files import FileStorage
 
@@ -188,20 +189,29 @@ def seed_demo(
         )
         db.add(candidate)
         db.flush()
-        db.add(
-            Application(
-                job_id=job.id,
-                candidate_id=candidate.id,
-                status=rng.choice(_STATUSES),
-                score=evaluation.score,
-                score_breakdown=evaluation.breakdown.model_dump(mode="json"),
-                ai_summary=evaluation.summary,
-                llm_model=evaluation.model,
-                prompt_version=evaluation.prompt_version,
-                score_status=ProcessingStatus.DONE,
-            )
+        status = rng.choice(_STATUSES)
+        application = Application(
+            job_id=job.id,
+            candidate_id=candidate.id,
+            status=status,
+            score=evaluation.score,
+            score_breakdown=evaluation.breakdown.model_dump(mode="json"),
+            ai_summary=evaluation.summary,
+            llm_model=evaluation.model,
+            prompt_version=evaluation.prompt_version,
+            score_status=ProcessingStatus.DONE,
         )
-        if index % 100 == 0:
-            db.flush()
+        db.add(application)
+        db.flush()
+        if status is not ApplicationStatus.NEW:
+            # Gerçek akıştaki gibi her durum değişikliğinin geçmişte görünmesi için (F9).
+            audit.record(
+                db,
+                actor_id=owner_id,
+                action=STATUS_CHANGE_ACTION,
+                entity_type="application",
+                entity_id=application.id,
+                payload={"from": ApplicationStatus.NEW.value, "to": status.value},
+            )
     db.commit()
     return SeedResult(job_id=job.id, application_count=applications)

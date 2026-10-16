@@ -77,3 +77,23 @@ def test_cli_seed_demo_with_applications_option(
 
     assert cli.main(["seed-demo", "--applications", "25"]) == 0
     assert db.scalar(select(func.count(Application.id))) == 25
+
+
+def test_seeded_status_changes_appear_in_history(
+    db: Session, admin: User, storage: FileStorage
+) -> None:
+    from app.models import ApplicationStatus
+    from app.services.applications import get_detail
+
+    result = demo.seed_demo(db, storage, owner_id=admin.id, applications=15, today=TODAY)
+
+    changed = [
+        a
+        for a in db.scalars(select(Application).where(Application.job_id == result.job_id))
+        if a.status is not ApplicationStatus.NEW
+    ]
+    assert changed, "tohum en az bir durum değişikliği üretmeli"
+    for application in changed:
+        [change] = get_detail(db, application.id).status_history
+        assert (change.from_status, change.to_status) == (ApplicationStatus.NEW, application.status)
+        assert change.actor_id == admin.id

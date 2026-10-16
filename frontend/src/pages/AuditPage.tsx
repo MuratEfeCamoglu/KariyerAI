@@ -2,16 +2,55 @@ import { useMemo, useState } from "react";
 
 import { PageHeader } from "../components/PageHeader.tsx";
 import { useAuditLogs } from "../hooks/useAudit.ts";
-import { AUDIT_ACTION_LABELS } from "../lib/constants.ts";
+import {
+  APPLICATION_STATUS_LABELS,
+  AUDIT_ACTION_LABELS,
+  JOB_STATUS_LABELS,
+  PROCESSING_STATUS_LABELS,
+  ROLE_LABELS,
+} from "../lib/constants.ts";
 import { formatDateTime } from "../lib/format.ts";
 
 function actionLabel(action: string): string {
   return AUDIT_ACTION_LABELS[action] ?? action;
 }
 
+const PAYLOAD_LABELS: Record<string, string> = {
+  from: "önceki",
+  to: "yeni",
+  status: "durum",
+  score: "puan",
+  model: "model",
+  prompt: "prompt",
+  job_id: "ilan",
+  candidate_id: "aday",
+  parse_status: "ayrıştırma",
+  fields: "alanlar",
+  role: "rol",
+  is_active: "aktif",
+  password_changed: "şifre değişti",
+  application_count: "başvuru sayısı",
+  step: "adım",
+};
+
+// Başvuru, işlem ve ilan durumları ile roller; anahtarlar birbiriyle çakışmaz.
+const VALUE_LABELS: Record<string, string> = {
+  ...APPLICATION_STATUS_LABELS,
+  ...PROCESSING_STATUS_LABELS,
+  ...JOB_STATUS_LABELS,
+  ...ROLE_LABELS,
+};
+
+function formatValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "boolean") return value ? "evet" : "hayır";
+  if (typeof value === "string") return VALUE_LABELS[value] ?? value;
+  return String(value);
+}
+
 function formatPayload(payload: Record<string, unknown>): string {
   return Object.entries(payload)
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+    .map(([key, value]) => `${PAYLOAD_LABELS[key] ?? key}: ${formatValue(value)}`)
     .join(" · ");
 }
 
