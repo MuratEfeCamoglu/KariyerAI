@@ -11,9 +11,13 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./data/kariyerai.db"
     jwt_secret: SecretStr = Field(min_length=32)
-    llm_provider: Literal["anthropic", "fake"] = "fake"
+    llm_provider: Literal["anthropic", "gemini", "fake"] = "fake"
     anthropic_api_key: SecretStr | None = None
     llm_model: str = "claude-sonnet-5-5"
+    # Gemini ücretsiz katmanı yalnızca sentetik veriyle (eval/test) kullanılır: gönderilen içerik
+    # sağlayıcının ürün geliştirmesinde kullanılabilir (KVKK, ISKELET V2).
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-2.5-flash"
     upload_dir: Path = Path("./data/uploads")
 
 

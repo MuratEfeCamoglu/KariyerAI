@@ -3,6 +3,7 @@
 Gerçek API çağrısı yapar ve ücretlidir; CI'da çalışmaz, çalıştırmadan önce onay gerekir (AGENT.md).
 
     uv run python -m evals.run                    # LLM_MODEL ile, ANTHROPIC_API_KEY gerekir
+    uv run python -m evals.run --provider gemini  # GEMINI_API_KEY ile (yalnızca sentetik veri)
     uv run python -m evals.run --provider fake    # yalnızca betiğin kendisini denemek için
 
 Çıkış kodu: recall eşiğin altındaysa veya ayrıştırma başarısız olan CV varsa 1.
@@ -21,7 +22,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.llm.base import LLMClient, LLMError
-from app.llm.factory import get_llm_client
+from app.llm.factory import PROVIDERS, get_llm_client
 from app.services import cv_parser
 from app.services.text import fold
 
@@ -140,7 +141,7 @@ def format_report(report: EvalReport, model: str) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evals.run", description=__doc__)
-    parser.add_argument("--provider", choices=["anthropic", "fake"], default="anthropic")
+    parser.add_argument("--provider", choices=PROVIDERS, default="anthropic")
     args = parser.parse_args(argv)
 
     llm = get_llm_client(args.provider)

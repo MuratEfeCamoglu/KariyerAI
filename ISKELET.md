@@ -1,7 +1,7 @@
 # KariyerAI — Proje İskeleti ve Sınırları
 
 > Bu dosya projenin tek doğruluk kaynağıdır (single source of truth). CLAUDE.md ve AGENT.md bu dosyaya dayanır; çelişki olursa **bu dosya geçerlidir**.
-> Son güncelleme: 2026-10-15 · Sürüm: 1.0 (MVP tanımı)
+> Son güncelleme: 2026-10-16 · Sürüm: 1.1 (Gemini geliştirme sağlayıcısı eklendi)
 
 ---
 
@@ -173,6 +173,7 @@ audit_logs(id PK, actor_id FK users NULL, action, entity_type, entity_id,
 
 ### 3.6 Dış Bağımlılıklar
 - **Anthropic Claude API** (`anthropic` Python SDK). Model `LLM_MODEL` ortam değişkeninden okunur, varsayılan `claude-sonnet-5-5`. Zaman aşımı 60 sn, ağ hatasında üstel bekleme ile en fazla 2 yeniden deneme.
+- **Google Gemini API** (`google-genai` SDK) — yalnızca geliştirme/eval (V2). Model `GEMINI_MODEL` ortam değişkeninden okunur.
 - `pypdf` (PDF metni), `python-docx` (DOCX metni), `python-magic` yerine `filetype` (saf Python, Windows'ta ek DLL gerektirmez) ile MIME tespiti.
 
 ---
@@ -290,7 +291,7 @@ Toplam ≈ 33 iş günü (~6,5 hafta). Aşamalar sırayla yapılır; her aşama 
 Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirilirse ilgili bölümler güncellenmelidir.
 
 - **V1 — İnsan karar verir:** Sistem yalnızca puan ve gerekçe önerir; otomatik ret/eleme yoktur. (Etkilediği: F6, F9, Kapsam Dışı)
-- **V2 — LLM sağlayıcı Anthropic Claude**, varsayılan model `claude-sonnet-5-5`, `LLM_MODEL` ile değiştirilebilir; `LLMClient` arayüzü sayesinde başka sağlayıcı eklenebilir.
+- **V2 — LLM sağlayıcı Anthropic Claude**, varsayılan model `claude-sonnet-5-5`, `LLM_MODEL` ile değiştirilebilir; `LLMClient` arayüzü sayesinde başka sağlayıcı eklenebilir. Geliştirme ve eval için ikinci sağlayıcı olarak Google Gemini (ücretsiz katman, `LLM_PROVIDER=gemini`) eklenmiştir; ücretsiz katmanda gönderilen içerik sağlayıcının ürün geliştirmesinde kullanılabildiği için **yalnızca sentetik veriyle** kullanılır, gerçek aday CV'si gönderilmez.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
 - **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru.

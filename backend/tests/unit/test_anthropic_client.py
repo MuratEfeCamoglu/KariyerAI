@@ -6,8 +6,14 @@ import anthropic
 import httpx2
 import pytest
 
-from app.llm.anthropic_client import PARSED_CV_JSON_SCHEMA, AnthropicClient
-from app.llm.base import LLMError, LLMOutputError, LLMRefusalError, load_prompt
+from app.llm.anthropic_client import AnthropicClient
+from app.llm.base import (
+    PARSED_CV_JSON_SCHEMA,
+    LLMError,
+    LLMOutputError,
+    LLMRefusalError,
+    load_prompt,
+)
 from app.schemas.parsed_cv import ParsedCV
 
 VALID_OUTPUT = {

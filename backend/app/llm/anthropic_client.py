@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any, Literal
 
@@ -7,10 +6,12 @@ from anthropic.types.beta import BetaMessageParam, BetaOutputConfigParam
 
 from app.llm.base import (
     PARSE_PROMPT_VERSION,
+    PARSED_CV_JSON_SCHEMA,
     LLMError,
     LLMOutputError,
     LLMRefusalError,
     load_prompt,
+    parse_json_object,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,79 +26,6 @@ PARSE_EFFORT: Literal["low"] = "low"
 # Güvenlik sınıflandırıcısı nadiren meşru bir CV'yi reddedebilir; sunucu tarafı yedek model
 # aynı istek içinde devreye girer (yalnızca Claude API'de).
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
-
-_NULLABLE_STRING: dict[str, Any] = {"type": ["string", "null"]}
-
-# Structured outputs şeması: modelin ürettiği JSON bu yapıya uyar. Tarih biçimi gibi ince kurallar
-# yine de ParsedCV ile doğrulanır. Korunan özellikler (yaş, cinsiyet vb.) şemada yoktur (F5b).
-PARSED_CV_JSON_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": [
-        "full_name",
-        "email",
-        "phone",
-        "summary",
-        "skills",
-        "experiences",
-        "education",
-        "languages",
-    ],
-    "properties": {
-        "full_name": _NULLABLE_STRING,
-        "email": _NULLABLE_STRING,
-        "phone": _NULLABLE_STRING,
-        "summary": _NULLABLE_STRING,
-        "skills": {"type": "array", "items": {"type": "string"}},
-        "experiences": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["title", "company", "start", "end", "description"],
-                "properties": {
-                    "title": {"type": "string"},
-                    "company": _NULLABLE_STRING,
-                    "start": _NULLABLE_STRING,
-                    "end": _NULLABLE_STRING,
-                    "description": _NULLABLE_STRING,
-                },
-            },
-        },
-        "education": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["level", "field", "school", "end_year"],
-                "properties": {
-                    "level": {
-                        "type": "string",
-                        "enum": ["none", "high_school", "associate", "bachelor", "master", "phd"],
-                    },
-                    "field": _NULLABLE_STRING,
-                    "school": _NULLABLE_STRING,
-                    "end_year": {"type": ["integer", "null"]},
-                },
-            },
-        },
-        "languages": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["language", "level"],
-                "properties": {
-                    "language": {"type": "string"},
-                    "level": {
-                        "type": ["string", "null"],
-                        "enum": ["A1", "A2", "B1", "B2", "C1", "C2", None],
-                    },
-                },
-            },
-        },
-    },
-}
 
 
 class AnthropicClient:
@@ -155,12 +83,4 @@ class AnthropicClient:
             raise LLMOutputError("Çıktı token sınırında kesildi")
 
         text = next((block.text for block in response.content if block.type == "text"), None)
-        if text is None:
-            raise LLMOutputError("Yanıtta metin yok")
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise LLMOutputError("Yanıt geçerli JSON değil") from exc
-        if not isinstance(data, dict):
-            raise LLMOutputError("Yanıt bir JSON nesnesi değil")
-        return data
+        return parse_json_object(text)

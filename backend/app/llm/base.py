@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -53,6 +54,94 @@ def load_prompt(version: str) -> Prompt:
         )
     except KeyError as exc:
         raise ValueError(f"{version}.md içinde '## {exc.args[0]}' bölümü yok") from exc
+
+
+# Yapılandırılmış çıktı şeması (sağlayıcıdan bağımsız): modelin ürettiği JSON bu yapıya uyar. Tarih
+# biçimi gibi ince kurallar yine de ParsedCV ile doğrulanır. Korunan özellikler (yaş, cinsiyet vb.)
+# şemada yoktur (F5b). total_experience_years LLM'e sorulmaz; kodda hesaplanır.
+_NULLABLE_STRING: dict[str, Any] = {"type": ["string", "null"]}
+
+PARSED_CV_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "full_name",
+        "email",
+        "phone",
+        "summary",
+        "skills",
+        "experiences",
+        "education",
+        "languages",
+    ],
+    "properties": {
+        "full_name": _NULLABLE_STRING,
+        "email": _NULLABLE_STRING,
+        "phone": _NULLABLE_STRING,
+        "summary": _NULLABLE_STRING,
+        "skills": {"type": "array", "items": {"type": "string"}},
+        "experiences": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["title", "company", "start", "end", "description"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "company": _NULLABLE_STRING,
+                    "start": _NULLABLE_STRING,
+                    "end": _NULLABLE_STRING,
+                    "description": _NULLABLE_STRING,
+                },
+            },
+        },
+        "education": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["level", "field", "school", "end_year"],
+                "properties": {
+                    "level": {
+                        "type": "string",
+                        "enum": ["none", "high_school", "associate", "bachelor", "master", "phd"],
+                    },
+                    "field": _NULLABLE_STRING,
+                    "school": _NULLABLE_STRING,
+                    "end_year": {"type": ["integer", "null"]},
+                },
+            },
+        },
+        "languages": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["language", "level"],
+                "properties": {
+                    "language": {"type": "string"},
+                    "level": {
+                        "type": ["string", "null"],
+                        "enum": ["A1", "A2", "B1", "B2", "C1", "C2", None],
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+def parse_json_object(text: str | None) -> dict[str, Any]:
+    """Modelin metin çıktısını JSON nesnesine çevirir; kullanılamazsa LLMOutputError."""
+    if text is None:
+        raise LLMOutputError("Yanıtta metin yok")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LLMOutputError("Yanıt geçerli JSON değil") from exc
+    if not isinstance(data, dict):
+        raise LLMOutputError("Yanıt bir JSON nesnesi değil")
+    return data
 
 
 class LLMClient(Protocol):
