@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Response
 
+from app.core.config import get_settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.security import ACCESS_TOKEN_TTL, AUTH_COOKIE_NAME, create_access_token
 from app.schemas.auth import LoginRequest
@@ -21,8 +22,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: DbSessio
         max_age=int(ACCESS_TOKEN_TTL.total_seconds()),
         httponly=True,
         samesite="lax",
-        # Geliştirme HTTP üzerinde çalışıyor; HTTPS'li üretim kurulumu MVP dışı (ISKELET V10).
-        secure=False,
+        secure=get_settings().cookie_secure,
         path="/",
     )
     return UserOut.model_validate(user)
@@ -30,7 +30,13 @@ def login(body: LoginRequest, request: Request, response: Response, db: DbSessio
 
 @router.post("/logout", status_code=204)
 def logout(_user: CurrentUser, response: Response) -> None:
-    response.delete_cookie(AUTH_COOKIE_NAME, path="/", httponly=True, samesite="lax")
+    response.delete_cookie(
+        AUTH_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=get_settings().cookie_secure,
+    )
 
 
 @router.get("/me")

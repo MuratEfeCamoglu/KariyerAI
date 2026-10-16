@@ -44,6 +44,7 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 - `LLM_MODEL=claude-sonnet-5-5`
 - `GEMINI_API_KEY` — yalnızca `.env`'de; `GEMINI_MODEL=gemini-3.5-flash`
 - `UPLOAD_DIR=./data/uploads`
+- `COOKIE_SECURE=false` — canlıda (HTTPS arkasında) `true`; `true` iken `.env.example`'daki örnek `JWT_SECRET` ile uygulama başlamaz
 
 ## Kod Kuralları
 **Genel**

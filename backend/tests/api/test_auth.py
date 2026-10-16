@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -111,3 +112,19 @@ def test_successful_login_is_audited_without_personal_data(
     assert entry.entity_id == recruiter.id
     assert recruiter.email not in str(entry.payload)
     assert recruiter.full_name not in str(entry.payload)
+
+
+def test_cookie_is_secure_when_configured(
+    client: TestClient, admin: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.api import auth as auth_api
+    from app.core.config import Settings
+
+    secure_settings = Settings.model_validate({"jwt_secret": "y" * 48, "cookie_secure": True})
+    monkeypatch.setattr(auth_api, "get_settings", lambda: secure_settings)
+
+    response = client.post(
+        "/api/auth/login", json={"email": admin.email, "password": ADMIN_PASSWORD}
+    )
+
+    assert "secure" in response.headers["set-cookie"].lower()

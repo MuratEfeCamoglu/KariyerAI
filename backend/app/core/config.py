@@ -2,8 +2,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# .env.example'daki örnek anahtar; canlıda (COOKIE_SECURE=true) kullanılması engellenir.
+EXAMPLE_JWT_SECRET = "dev-only-change-me-0123456789abcdef"
 
 
 class Settings(BaseSettings):
@@ -19,6 +22,17 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.5-flash"
     upload_dir: Path = Path("./data/uploads")
+    # HTTPS arkasında true: oturum cookie'si yalnızca HTTPS ile gönderilir (ISKELET V10).
+    cookie_secure: bool = False
+
+    @model_validator(mode="after")
+    def _reject_example_secret_in_production(self) -> "Settings":
+        if self.cookie_secure and self.jwt_secret.get_secret_value() == EXAMPLE_JWT_SECRET:
+            raise ValueError(
+                "COOKIE_SECURE=true iken .env.example'daki örnek JWT_SECRET kullanılamaz; "
+                "rastgele, en az 32 karakterlik bir değer üretin."
+            )
+        return self
 
 
 @lru_cache
