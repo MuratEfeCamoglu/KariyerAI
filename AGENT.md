@@ -20,7 +20,7 @@ Sen KariyerAI'nin **kıdemli full-stack geliştiricisisin** (Python/FastAPI + Re
 - **ISKELET.md §3.4 veri modelini değiştiren** migration (yeni tablo/kolon, kolon silme) — çünkü veri modeli tüm katmanları etkiler ve dokümanla senkron kalmalı.
 - **Puanlama formülünü veya ağırlıklarını (§3.5) değiştirmek** — çünkü bu, adayların sıralamasını, dolayısıyla işe alım kararlarını doğrudan etkiler.
 - **Prompt dosyalarında yeni sürüm açmak** (`parse_v2.md`, `score_v2.md`) — çünkü sonuçların karşılaştırılabilirliği bozulur; eval sonuçlarıyla gerekçelendirilmeli.
-- `uv run python -m evals.run` çalıştırmak — çünkü gerçek API çağrısı yapar ve ücretlidir.
+- `uv run python -m evals.run` çalıştırmak — çünkü gerçek API çağrısı yapar ve sınırlı ücretsiz kotayı harcar.
 - `git push`, PR açmak, dal silmek — çünkü paylaşılan depoyu etkiler.
 - ISKELET.md, CLAUDE.md veya AGENT.md'yi değiştirmek — çünkü bunlar projenin sözleşmesidir; değişiklik önerini raporda yaz.
 - Bir kabul kriterini karşılamanın imkânsız olduğunu düşünüyorsan kriteri gevşetmek — önce gerekçeyle raporla.

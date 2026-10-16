@@ -1,7 +1,7 @@
 # KariyerAI — Proje İskeleti ve Sınırları
 
 > Bu dosya projenin tek doğruluk kaynağıdır (single source of truth). CLAUDE.md ve AGENT.md bu dosyaya dayanır; çelişki olursa **bu dosya geçerlidir**.
-> Son güncelleme: 2026-10-16 · Sürüm: 1.2 (Gemini ve Groq geliştirme sağlayıcıları eklendi)
+> Son güncelleme: 2026-10-16 · Sürüm: 1.3 (LLM sağlayıcıları Groq ve Gemini; Claude kaldırıldı)
 
 ---
 
@@ -79,7 +79,7 @@
 |---|---|---|
 | API router'ları | `backend/app/api/` | HTTP uçları, girdi doğrulama, yetki kontrolü. İş mantığı içermez. |
 | Servisler | `backend/app/services/` | İş mantığı: `cv_extract` (PDF/DOCX→metin), `cv_parser` (metin→ParsedCV), `anonymizer` (puanlama girdisinden kişisel veriyi çıkarma), `scoring` (deterministik formül + kanıt doğrulama), `pipeline` (arka plan iş akışı), `audit`. |
-| LLM katmanı | `backend/app/llm/` | `LLMClient` arayüzü; `AnthropicClient` (gerçek) ve `FakeLLMClient` (test/çevrimdışı). Prompt'lar `prompts/` altında sürüm numaralı dosyalar (`parse_v1.md`, `score_v1.md`). |
+| LLM katmanı | `backend/app/llm/` | `LLMClient` arayüzü; `GroqClient` ve `GeminiClient` (gerçek) ve `FakeLLMClient` (test/çevrimdışı). Prompt'lar `prompts/` altında sürüm numaralı dosyalar (`parse_v1.md`, `score_v1.md`). |
 | Depolama | `backend/app/storage/` | CV dosyalarını `UPLOAD_DIR/<uuid>.<ext>` olarak yazma/okuma/silme. Orijinal dosya adı yalnızca DB'de tutulur. |
 | Frontend | `frontend/src/` | Sayfalar, API istemcisi, bileşenler. Rotalar: `/login`, `/jobs` (ana sayfa), `/jobs/new`, `/jobs/:id`, `/jobs/:id/edit`, `/applications/:id`, `/users` (admin), `/audit` (admin). Oturumsuz kullanıcı `/login`'e yönlenir; admin olmayan `/users`/`/audit`'e giderse `/jobs`'a yönlenir. |
 
@@ -172,9 +172,8 @@ audit_logs(id PK, actor_id FK users NULL, action, entity_type, entity_id,
 - Görsel bant: ≥ 75 "Yüksek uyum" (yeşil), 50–74 "Orta uyum" (sarı), < 50 "Düşük uyum" (gri). "Uygun değil" gibi yargı ifadeleri kullanılmaz.
 
 ### 3.6 Dış Bağımlılıklar
-- **Anthropic Claude API** (`anthropic` Python SDK). Model `LLM_MODEL` ortam değişkeninden okunur, varsayılan `claude-sonnet-5-5`. Zaman aşımı 60 sn, ağ hatasında üstel bekleme ile en fazla 2 yeniden deneme.
-- **Google Gemini API** (`google-genai` SDK) — yalnızca geliştirme/eval (V2). Model `GEMINI_MODEL` ortam değişkeninden okunur.
-- **Groq API** (OpenAI uyumlu; `httpx` ile, ek SDK yok) — yalnızca geliştirme/eval (V2). Model `GROQ_MODEL` ortam değişkeninden okunur; ücretsiz katmanda dakikalık token kotası nedeniyle 429 yanıtındaki bekleme süresine uyulur.
+- **Groq API** (OpenAI uyumlu; `httpx` ile, ek SDK yok) — varsayılan sağlayıcı (V2). Model `GROQ_MODEL` ortam değişkeninden okunur, varsayılan `openai/gpt-oss-120b`. Zaman aşımı 60 sn; 429/5xx/ağ hatasında 429 yanıtındaki bekleme süresine uyularak en fazla 2 yeniden deneme.
+- **Google Gemini API** (`google-genai` SDK) — ikinci sağlayıcı (V2). Model `GEMINI_MODEL` ortam değişkeninden okunur, varsayılan `gemini-3.5-flash`. Zaman aşımı 60 sn, geçici hatada en fazla 2 yeniden deneme.
 - `pypdf` (PDF metni), `python-docx` (DOCX metni), `python-magic` yerine `filetype` (saf Python, Windows'ta ek DLL gerektirmez) ile MIME tespiti.
 
 ---
@@ -200,7 +199,7 @@ KariyerAI/
 │   │   ├── schemas/                # Pydantic istek/yanıt şemaları + parsed_cv.py
 │   │   ├── api/                    # auth.py users.py jobs.py applications.py candidates.py audit.py
 │   │   ├── services/               # cv_extract.py cv_parser.py anonymizer.py scoring.py pipeline.py audit.py
-│   │   ├── llm/                    # base.py anthropic_client.py fake_client.py factory.py
+│   │   ├── llm/                    # base.py groq_client.py gemini_client.py fake_client.py factory.py
 │   │   │   └── prompts/            # parse_v1.md score_v1.md
 │   │   └── storage/                # files.py
 │   ├── evals/                      # run.py + cvs/ (10 sentetik CV + beklenen JSON)
@@ -231,7 +230,7 @@ KariyerAI/
 ## 5. Kısıtlar
 
 **Teknik**
-- Yalnızca açık kaynak kütüphaneler (Anthropic SDK hariç dış ücretli servis yok).
+- Yalnızca açık kaynak kütüphaneler (LLM sağlayıcıları Groq ve Gemini dışında dış servis yok). Anthropic/Claude API kullanılmaz.
 - Python 3.12, Node.js 24 LTS. Geliştirme ortamı Windows 11; komutlar Windows/macOS/Linux'ta aynı çalışmalı (bash'e özgü script yok, npm script'leri ve `uv run` kullanılır).
 - Testler gerçek LLM API'sine **istek atmaz**; `LLM_PROVIDER=fake` ile `FakeLLMClient` kullanılır.
 
@@ -264,7 +263,7 @@ KariyerAI/
 | 1 — Kimlik & kullanıcılar | 4 gün | F1, F2, F12'nin altyapısı (`audit` servisi), `create-admin` CLI, giriş sayfası, korumalı rotalar, kullanıcı sayfası | F1–F2 kabul kriterleri API testleriyle geçer |
 | 2 — İlanlar | 3 gün | F3: model, uçlar, liste ve form sayfaları | F3 kabul kriterleri geçer; ilan listesi başvuru sayısını gösterir |
 | 3 — CV yükleme | 4 gün | F4: storage, `cv_extract`, upload ucu, `UploadDropzone`, aday/başvuru modelleri, pipeline iskeleti (`FakeLLMClient` ile) | F4 kabul kriterleri geçer; fixture PDF/DOCX'ten metin çıkar |
-| 4 — AI ayrıştırma | 5 gün | F5: `LLMClient`, `AnthropicClient`, `parse_v1` prompt, Pydantic doğrulama + retry, deneyim yılı hesabı, eval seti ve script | F5 (a–c) testlerle; F5 (d) eval raporu recall ≥ %80 |
+| 4 — AI ayrıştırma | 5 gün | F5: `LLMClient`, LLM istemcileri (Groq, Gemini), `parse_v1` prompt, Pydantic doğrulama + retry, deneyim yılı hesabı, eval seti ve script | F5 (a–c) testlerle; F5 (d) eval raporu recall ≥ %80 |
 | 5 — Puanlama & sıralama | 6 gün | F6, F7: `anonymizer`, `score_v1` prompt, formül, kanıt doğrulama, yeniden puanlama, sıralı liste + filtre + otomatik yenileme | F6–F7 kabul kriterleri; scoring formülü için her kalemde sınır değer testleri |
 | 6 — Detay, akış, notlar | 5 gün | F8, F9, F10, F12 (audit sayfası) | İlgili kabul kriterleri; B4 (3 tık) elle doğrulanır |
 | 7 — KVKK & cila | 4 gün | F11, `seed-demo` (1 ilan + 20 sentetik CV; `--applications 500` ile performans verisi), hata/boş durum ekranları, performans ölçümü (§5), README tamamlama | F11 geçer; B1 ve §5 performans hedefleri ölçülüp README'ye yazılır |
@@ -279,7 +278,7 @@ Toplam ≈ 33 iş günü (~6,5 hafta). Aşamalar sırayla yapılır; her aşama 
 |---|---|---|---|
 | R1 | LLM halüsinasyonu (CV'de olmayan beceriyi "var" demek) | Yüksek — yanlış aday öne çıkar | Kanıt alıntısı zorunlu; kod alıntıyı CV metninde arar, yoksa kalemi karşılanmamış sayar (F6c). |
 | R2 | Ayrımcılık / önyargı | Yüksek — yasal ve itibar riski | Korunan özellikler şemada yok (F5b); puanlama girdisi anonim (F6d); otomatik eleme yok (F9); her puan gerekçeli ve audit'te. |
-| R3 | KVKK: kişisel verinin yurt dışındaki LLM sağlayıcısına aktarımı | Yüksek — yasal | Varsayım V4; canlıya almadan önce şirketin hukuk birimi onayı ve aday aydınlatma metni gerekir (açık nokta olarak raporlanır). Puanlamada anonimleştirme ile aktarılan veri azaltılır. |
+| R3 | KVKK: kişisel verinin yurt dışındaki LLM sağlayıcısına (Groq/Gemini, ABD) aktarımı; ücretsiz katmanlarda içeriğin sağlayıcı tarafından ürün geliştirmede kullanılabilmesi | Yüksek — yasal | Varsayım V4; canlıya almadan önce şirketin hukuk birimi onayı ve aday aydınlatma metni gerekir. Gerçek aday verisi için **ücretli katman** (Gemini: faturalandırma açık proje; Groq: Data Controls'ta sıfır veri saklama) önerilir; ücretsiz Gemini katmanı içeriği ürün geliştirmede kullanabilir. Puanlamada anonimleştirme ile aktarılan veri azaltılır. |
 | R4 | Taranmış (görsel) PDF'ler okunamaz | Orta — bazı adaylar işlenemez | Açık hata mesajı (F4e); OCR Sonraki Sürümler'de. |
 | R5 | CV içinde prompt injection | Orta | `<cv>` ayraçları + uyarı; puan kodda hesaplanır; kanıt doğrulaması. |
 | R6 | LLM maliyeti / API kesintisi | Orta | CV metni LLM'e en fazla 30.000 karakter gönderilir (fazlası kesilir); ayrıştırma sonucu saklanır, yeniden puanlamada tekrar ayrıştırılmaz; hata durumunda `failed` + arayüzde "Yeniden dene" düğmesi (`POST /applications/{id}/retry`, F7e). |
@@ -292,7 +291,7 @@ Toplam ≈ 33 iş günü (~6,5 hafta). Aşamalar sırayla yapılır; her aşama 
 Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirilirse ilgili bölümler güncellenmelidir.
 
 - **V1 — İnsan karar verir:** Sistem yalnızca puan ve gerekçe önerir; otomatik ret/eleme yoktur. (Etkilediği: F6, F9, Kapsam Dışı)
-- **V2 — LLM sağlayıcı Anthropic Claude**, varsayılan model `claude-sonnet-5-5`, `LLM_MODEL` ile değiştirilebilir; `LLMClient` arayüzü sayesinde başka sağlayıcı eklenebilir. Geliştirme ve eval için ek sağlayıcılar olarak Google Gemini (`LLM_PROVIDER=gemini`) ve Groq (`LLM_PROVIDER=groq`, OpenAI uyumlu API) ücretsiz katmanları eklenmiştir; ücretsiz katmanların veri koşulları canlı kullanım için güvence vermediğinden **yalnızca sentetik veriyle** kullanılırlar, gerçek aday CV'si gönderilmez.
+- **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
 - **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru.

@@ -137,4 +137,4 @@ daralır, aday detayında sağ sütun alta iner, geniş tablolar `overflow-x-aut
 - Doğrulanamayan kanıt **karşılanmamış** sayılır (F6c) — örnek aday puanları formülle yeniden hesaplandı.
 - Deneyimde staj ayrımı yok; tüm dönemler, çakışmalar bir kez sayılarak (§3.4).
 - Şifre sıfırlama, e-posta daveti, CSV dışa aktarma kaldırıldı (§2.3 / F12).
-- Id'ler sayısal; model adı `claude-sonnet-5-5`, prompt `score_v1`.
+- Id'ler sayısal; model adı kurulumdaki LLM'e göre (ör. `openai/gpt-oss-120b`), prompt `score_v1`.

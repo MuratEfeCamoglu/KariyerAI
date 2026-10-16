@@ -54,13 +54,21 @@ kullanıcılarını **Kullanıcılar** sayfasından ekleyebilirsiniz.
 
 | Değer | Ne zaman | Gerekenler |
 |---|---|---|
-| `fake` (varsayılan) | Geliştirme, test, demo | Hiçbir şey; ağa çıkmaz, deterministik. Gerçek bir ayrıştırıcı değildir |
-| `anthropic` | **Gerçek CV'lerle kullanım** | `ANTHROPIC_API_KEY` (ücretli). Model: `LLM_MODEL`, varsayılan `claude-sonnet-5-5` |
-| `groq` | Geliştirme/eval, **yalnızca sentetik veri** — önerilen ücretsiz seçenek | `GROQ_API_KEY` (console.groq.com, kart gerekmez). Model `openai/gpt-oss-120b`. Ücretsiz katman: günde 1.000 istek, dakikada 8.000 token |
-| `gemini` | Geliştirme/eval, **yalnızca sentetik veri** | `GEMINI_API_KEY` (Google AI Studio ücretsiz katmanı; günde model başına 20 istek). Ücretsiz katmanda gönderilen içerik sağlayıcının ürün geliştirmesinde kullanılabilir; gerçek aday CV'si gönderilmez (KVKK) |
+| `groq` ⭐ | Gerçek ve test CV'leri — **önerilen** | `GROQ_API_KEY` (console.groq.com, kart gerekmez). Model `openai/gpt-oss-120b`. Ücretsiz katman: günde 1.000 istek, dakikada 8.000 token |
+| `gemini` | Gerçek ve test CV'leri — ikinci seçenek | `GEMINI_API_KEY` (aistudio.google.com). Model `gemini-3.5-flash`. Ücretsiz katman: günde model başına 20 istek |
+| `fake` (varsayılan) | Geliştirme, otomatik testler, demo | Hiçbir şey; ağa çıkmaz, deterministik. Gerçek bir ayrıştırıcı değildir |
 
-> Canlıya almadan önce: aday CV'lerinin yurt dışındaki bir LLM sağlayıcısında işlenmesi için
-> şirketin hukuk birimi onayı ve aday aydınlatma metni gerekir (ISKELET R3, V4).
+Anthropic/Claude API kullanılmaz.
+
+> **KVKK — gerçek aday CV'leri için okuyun:** CV metinleri seçilen sağlayıcıya (ABD) gönderilir.
+> - **Gemini ücretsiz katmanında** gönderilen içerik Google'ın ürün geliştirmesinde kullanılabilir ve
+>   insan incelemesine açılabilir. Gerçek CV'ler için Google Cloud projesinde faturalandırmayı açarak
+>   **ücretli katmanı** kullanın (ücretli katmanda içerik ürün geliştirmede kullanılmaz).
+> - **Groq** için console.groq.com → Data Controls'ta veri saklamanın kapalı (Zero Data Retention)
+>   olduğunu doğrulayın ve güncel gizlilik koşullarını hukuk birimine onaylatın.
+> - Canlıya almadan önce şirketin hukuk birimi onayı ve aday aydınlatma metni gerekir
+>   (ISKELET R3, V4; taslak: [docs/KVKK-AYDINLATMA-TASLAGI.md](docs/KVKK-AYDINLATMA-TASLAGI.md)).
+> - Ücretsiz katman kotaları gerçek kullanım hacmine yetmeyebilir (aşağıdaki B1 ölçümü).
 
 ## AI ayrıştırma değerlendirmesi
 
@@ -69,16 +77,14 @@ recall'unu (hedef ≥ %80) ve ayrıştırma süresini (p95 ≤ 30 sn) ölçer:
 
 ```bash
 # backend/ içinde — gerçek API çağrısı yapar
-uv run python -m evals.run                                  # Claude (ANTHROPIC_API_KEY, ücretli)
-uv run python -m evals.run --provider groq --delay 12       # Groq ücretsiz katman
-uv run python -m evals.run --provider gemini --delay 15     # Gemini ücretsiz katman (günlük kota)
+uv run python -m evals.run --delay 12                       # Groq (varsayılan)
+uv run python -m evals.run --provider gemini --delay 15     # Gemini (günlük kota düşük)
 ```
 
 | Tarih | Model | Beceri recall'u | p95 ayrıştırma |
 |---|---|---|---|
 | 2026-10-16 | `openai/gpt-oss-120b` (Groq) | **%96,3** (eksik: İş hukuku, Vergi mevzuatı, SMMM) | **2,5 sn** |
 | 2026-10-16 | `gemini-3.5-flash` | **%100** (10/10 CV) | **16,5 sn** |
-| — | `claude-sonnet-5-5` | henüz ölçülmedi (API anahtarı gerekli) | — |
 
 ## Performans (ISKELET §5)
 
@@ -90,14 +96,14 @@ uv run python -m evals.run --provider gemini --delay 15     # Gemini ücretsiz k
 | Başvuru listesi API, 500 kayıt | p95 ≤ 500 ms | **p95 129 ms** (medyan 21 ms) | 60 istek; sayfa, puan ve durum filtreleriyle |
 | 20 CV yükleme yanıtı (F4f) | ≤ 40 sn | **0,31 sn** | Ayrıştırma arka planda sürer |
 | 20 CV'nin tamamen işlenmesi (B1) | ≤ 5 dk | **0,62 sn** | Sahte LLM ile; gerçek LLM süresini içermez |
-| 20 CV'nin tamamen işlenmesi (B1), gerçek LLM | ≤ 5 dk | **7,0 dk** ✗ — 20/20 başarılı | Groq ücretsiz katmanı: darboğaz dakikalık 8.000 token kotası (ilk CV'ler 6–7 sn'de bitti, sonrası kotaya göre ~21 sn arayla). Ücretli katmanda kota kalkınca hedefin altında kalması beklenir; Claude ile ölçülmedi |
+| 20 CV'nin tamamen işlenmesi (B1), gerçek LLM | ≤ 5 dk | **7,0 dk** ✗ — 20/20 başarılı | Groq ücretsiz katmanı: darboğaz dakikalık 8.000 token kotası (ilk CV'ler 6–7 sn'de bitti, sonrası kotaya göre ~21 sn arayla). Ücretli katmanda kota kalkınca hedefin altında kalması beklenir (ölçülmedi) |
 | Tek CV ayrıştırma (F5c) | p95 ≤ 30 sn | **p95 16,5 sn** | Gemini eval'i (10 CV) |
 | Tek CV puanlama | ≤ 15 sn | **6,8 sn** | Gemini, 1 sentetik CV (tek ölçüm) |
 | Frontend ilk yükleme JS | gzip ≤ 300 KB | **≈ 130 KB** | `npm run build` çıktısı |
 
-B1, canlıda kullanılacak `anthropic` sağlayıcısıyla (ücretli, kotası yüksek) yeniden ölçülmelidir.
-Ücretsiz katmanlardaki ölçüm uygulamanın kota sınırına takıldığında da işleri kaybetmeden
-(429'da bekleyip yeniden deneyerek) tamamladığını gösterir.
+B1 hedefi (20 CV ≤ 5 dk) Groq'un ücretsiz katmanında dakikalık token kotası nedeniyle tutturulamaz;
+ücretli katmana geçildiğinde yeniden ölçülmelidir. Ölçüm, uygulamanın kota sınırına takıldığında da
+işleri kaybetmeden (429'da bekleyip yeniden deneyerek) tamamladığını gösterir.
 
 ## Demo verisi
 

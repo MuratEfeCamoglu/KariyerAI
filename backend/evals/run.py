@@ -1,9 +1,9 @@
 """F5d: CV ayrıştırma değerlendirmesi (beceri recall'u ve ayrıştırma süresi).
 
-Gerçek API çağrısı yapar ve ücretlidir; CI'da çalışmaz, çalıştırmadan önce onay gerekir (AGENT.md).
+Gerçek API çağrısı yapar (ücretsiz katman kotası harcar); CI'da çalışmaz.
 
-    uv run python -m evals.run                    # LLM_MODEL ile, ANTHROPIC_API_KEY gerekir
-    uv run python -m evals.run --provider gemini  # GEMINI_API_KEY ile (yalnızca sentetik veri)
+    uv run python -m evals.run --delay 12         # Groq (GROQ_API_KEY), varsayılan
+    uv run python -m evals.run --provider gemini --delay 15   # Gemini (GEMINI_API_KEY)
     uv run python -m evals.run --provider fake    # yalnızca betiğin kendisini denemek için
 
 Çıkış kodu: recall eşiğin altındaysa veya ayrıştırma başarısız olan CV varsa 1.
@@ -147,7 +147,7 @@ def format_report(report: EvalReport, model: str) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evals.run", description=__doc__)
-    parser.add_argument("--provider", choices=PROVIDERS, default="anthropic")
+    parser.add_argument("--provider", choices=PROVIDERS, default="groq")
     parser.add_argument(
         "--delay", type=float, default=0.0, help="CV'ler arasında bekleme (sn), hız sınırı için"
     )

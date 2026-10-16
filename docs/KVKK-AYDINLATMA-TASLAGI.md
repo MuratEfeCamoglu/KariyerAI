@@ -50,8 +50,8 @@ yapılması, işe alım sürecinin yürütülmesi ve kayıt altına alınması.
 
 ### 5. Aktarım
 
-- Özgeçmiş metniniz, yapay zekâ analizi için hizmet sağlayıcımız [SAĞLAYICI ADI, ÜLKE — ör.
-  Anthropic PBC, ABD] tarafından işlenmektedir. Bu aktarım **yurt dışına** yapılmaktadır.
+- Özgeçmiş metniniz, yapay zekâ analizi için hizmet sağlayıcımız [SAĞLAYICI ADI, ÜLKE — kurulumda
+  kullanılan: Groq Inc., ABD ve/veya Google LLC (Gemini API), ABD] tarafından işlenmektedir. Bu aktarım **yurt dışına** yapılmaktadır.
   [HUKUK BİRİMİ BELİRLEYECEK — KVKK m. 9 kapsamındaki aktarım dayanağı (ör. standart sözleşme
   ve Kurul'a bildirimi) ile sağlayıcının veri saklama ve model eğitimi koşulları.]
 - Verileriniz bunun dışında yalnızca işe alım sürecinde görevli Şirket çalışanlarıyla
