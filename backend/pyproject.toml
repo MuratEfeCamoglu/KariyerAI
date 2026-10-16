@@ -45,3 +45,4 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = ["real_bcrypt: üretimdeki bcrypt maliyetiyle (12) çalışır"]

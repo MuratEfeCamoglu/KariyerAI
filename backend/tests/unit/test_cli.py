@@ -17,6 +17,7 @@ def _fake_getpass(answers: list[str]) -> Iterator[str]:
     return iter(answers)
 
 
+@pytest.mark.real_bcrypt
 def test_create_admin_prompts_hidden_password_and_creates_admin(
     monkeypatch: pytest.MonkeyPatch, db: Session, capsys: pytest.CaptureFixture[str]
 ) -> None:

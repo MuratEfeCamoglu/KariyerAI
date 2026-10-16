@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core import security
 from app.core.db import create_db_engine, get_db
 from app.core.security import login_rate_limiter
 from app.main import app
@@ -45,6 +46,14 @@ def db(session_factory: sessionmaker[Session]) -> Iterator[Session]:
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter() -> None:
     login_rate_limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def _fast_bcrypt(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Cost 12 her hash'te ~250 ms; testler bunu yüzlerce kez yapar. Üretim maliyeti
+    # `real_bcrypt` işaretli testlerde ayrıca doğrulanır.
+    if request.node.get_closest_marker("real_bcrypt") is None:
+        monkeypatch.setattr(security, "BCRYPT_COST", 4)
 
 
 @pytest.fixture

@@ -39,6 +39,7 @@ def test_admin_lists_users(admin_client: TestClient, admin: User, recruiter: Use
     assert all("password_hash" not in u for u in response.json())
 
 
+@pytest.mark.real_bcrypt
 def test_admin_creates_user_who_can_login(admin_client: TestClient, db: Session) -> None:
     response = admin_client.post("/api/users", json=NEW_USER)
 

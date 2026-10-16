@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.core.security import (
     LoginRateLimiter,
     create_access_token,
@@ -10,6 +12,7 @@ from app.core.security import (
 )
 
 
+@pytest.mark.real_bcrypt
 def test_hash_password_uses_bcrypt_cost_12_and_verifies() -> None:
     hashed = hash_password("guvenli-sifre-1")
 
