@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -60,6 +60,22 @@ def update_user(
         raise NotFoundError("Kullanıcı bulunamadı")
     if is_active is False and user.id == actor_id:
         raise ValidationError("Kendi hesabınızı pasifleştiremezsiniz")
+
+    # Son aktif yönetici kaybedilirse kullanıcı yönetimi ve KVKK silme işlemleri kimse
+    # tarafından yapılamaz hale gelir; rol düşürme ve pasifleştirme bu yüzden engellenir.
+    loses_admin = (
+        user.role is UserRole.ADMIN
+        and user.is_active
+        and ((role is not None and role is not UserRole.ADMIN) or is_active is False)
+    )
+    if loses_admin:
+        other_admins = db.scalar(
+            select(func.count(User.id)).where(
+                User.role == UserRole.ADMIN, User.is_active, User.id != user.id
+            )
+        )
+        if not other_admins:
+            raise ConflictError("Sistemde en az bir aktif yönetici kalmalı")
 
     changes: dict[str, str | bool] = {}
     if full_name is not None:

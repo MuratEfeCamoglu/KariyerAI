@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, User
-from tests.conftest import RECRUITER_PASSWORD
+from tests.conftest import RECRUITER_PASSWORD, LoginFn
 
 NEW_USER = {
     "email": "Yeni@Example.com",
@@ -141,3 +141,48 @@ def test_update_unknown_user_returns_404(admin_client: TestClient) -> None:
     response = admin_client.patch("/api/users/9999", json={"role": "admin"})
 
     assert response.status_code == 404
+
+
+# --- Son aktif yöneticinin korunması ---
+
+
+def test_last_admin_cannot_demote_self(admin_client: TestClient, admin: User) -> None:
+    response = admin_client.patch(f"/api/users/{admin.id}", json={"role": "recruiter"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Sistemde en az bir aktif yönetici kalmalı"}
+
+
+def test_admin_can_be_demoted_when_another_active_admin_exists(
+    admin_client: TestClient, admin: User, recruiter: User
+) -> None:
+    admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "admin"})
+
+    response = admin_client.patch(f"/api/users/{admin.id}", json={"role": "recruiter"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "recruiter"
+
+
+def test_inactive_admins_do_not_count_as_remaining_admins(
+    admin_client: TestClient, admin: User, recruiter: User
+) -> None:
+    # İkinci admin pasif olduğu sürece son aktif admin yine korunur.
+    admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "admin"})
+    admin_client.patch(f"/api/users/{recruiter.id}", json={"is_active": False})
+
+    response = admin_client.patch(f"/api/users/{admin.id}", json={"role": "recruiter"})
+
+    assert response.status_code == 409
+
+
+def test_other_admin_cannot_deactivate_last_active_admin(
+    admin_client: TestClient, admin: User, recruiter: User, login: LoginFn, db: Session
+) -> None:
+    admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "admin"})
+    second = login(recruiter.email, RECRUITER_PASSWORD)
+    # İlk admin pasifleştirilince ikinci admin son aktif admin olur.
+    assert second.patch(f"/api/users/{admin.id}", json={"is_active": False}).status_code == 200
+
+    db.expire_all()
+    assert second.patch(f"/api/users/{recruiter.id}", json={"role": "recruiter"}).status_code == 409
