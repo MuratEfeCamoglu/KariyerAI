@@ -1,6 +1,6 @@
 # KariyerAI — İki Taraflı Uygulama: CV Geliştirme (İş Arayan Tarafı)
 
-> Durum: taslak, kullanıcı onayı bekliyor · 2026-10-19
+> Durum: kullanıcı tarafından onaylandı (2026-10-19); uygulandı
 > Bu doküman onaylanınca ISKELET.md (sürüm 1.4), CLAUDE.md ve AGENT.md buna göre güncellenir.
 
 ## 1. Amaç ve neden

@@ -1,11 +1,14 @@
 # KariyerAI
 
-**İK ekipleri için yapay zekâ destekli, kanıta dayalı CV değerlendirme aracı.**
+**İK ekipleri ve iş arayanlar için yapay zekâ destekli, kanıta dayalı CV değerlendirme aracı.**
 
 KariyerAI, bir ilana gelen CV'leri (PDF/DOCX) okur, yapılandırılmış veriye çevirir, ilanın
 kriterleriyle karşılaştırır ve her adaya **0–100 arası, kalem kalem gerekçelendirilmiş** bir uyum
 puanı verir. Adaylar puana göre sıralanır. Her "karşılandı" kararının yanında CV'den **birebir
 alıntı** bulunur.
+
+İş arayanlar da kendi kaydolup CV'lerini hedefledikleri işin kriterlerine göre değerlendirebilir:
+sistem CV'de **neyin eksik olduğunu** ve neyin kanıtlı olduğunu gösterir.
 
 > **Son kararı her zaman İK uzmanı verir.** Sistem yalnızca öneri sunar; kimseyi otomatik elemez
 > ve başvuru durumunu kendiliğinden değiştirmez.
@@ -20,6 +23,7 @@ alıntı** bulunur.
 
 - [Neden KariyerAI?](#neden-kariyerai)
 - [Nasıl çalışır?](#nasıl-çalışır)
+- [İş arayanlar için: CV geliştirme](#iş-arayanlar-için-cv-geliştirme)
 - [Ekranlar](#ekranlar)
 - [Puan nasıl hesaplanır?](#puan-nasıl-hesaplanır)
 - [Hızlı başlangıç](#hızlı-başlangıç)
@@ -67,6 +71,22 @@ flowchart LR
 3. **Sıralamayı inceleyin.** Puan, durum ve işlem durumuna göre filtreleyin.
 4. **Adayın detayına girin.** Her kalemin gerekçesini ve kanıtını görün, not alın, durumu
    güncelleyin.
+
+---
+
+## İş arayanlar için: CV geliştirme
+
+1. **Kayıt olun.** Giriş sayfasındaki "Kayıt ol" bağlantısıyla e-posta ve şifreyle hesap açılır.
+2. **Hedef işi girin.** İlanın başlığını ve kriterlerini (zorunlu ve tercih edilen beceriler,
+   deneyim yılı, eğitim, diller) ilan formundaki alanlarla girin, CV'nizi (PDF/DOCX) yükleyin.
+3. **Eksiklik raporunu okuyun.** Rapor önem sırasıyla nelerin eksik olduğunu (kanıtı bulunamayan
+   beceriler, deneyim ve eğitim açığı, dil seviyesi) ve nasıl giderilebileceğini söyler; karşılanan
+   kalemleri CV'den alıntıyla gösterir.
+
+Öneriler kodla, puan kırılımından üretilir; sahip olmadığınız bir beceriyi yazmanızı önermez.
+İş arayan verisi işveren tablolarından ayrıdır: hiçbir İK ekranında görünmez, istediğiniz an
+CV dosyasıyla birlikte kalıcı olarak silinebilir. Kota korunsun diye kullanıcı başına günde 10
+değerlendirme yapılabilir.
 
 ---
 
@@ -213,6 +233,8 @@ GEMINI_MODEL=gemini-3.5-flash,gemini-3.6-flash,gemini-3-flash-preview
   uyarısıyla gönderilir. Puan kodda hesaplandığından, CV'ye "bana 100 ver" yazmak puanı etkilemez.
 - **Kalıcı silme:** Yönetici, bir adayı tüm başvuruları, notları ve diskteki CV dosyasıyla birlikte
   kalıcı olarak silebilir.
+- **İş arayan verisi ayrıdır.** İş arayanın CV'si ve değerlendirmeleri işveren tablolarına girmez;
+  yalnızca sahibi görür ve silebilir.
 - **Kişisel veri loglanmaz.** Loglarda ve denetim kaydında yalnızca kimlik numaraları bulunur.
 - **Güvenli giriş:** Şifreler bcrypt ile saklanır. Oturum httpOnly cookie'de tutulur. Art arda
   hatalı girişler geçici olarak engellenir.
