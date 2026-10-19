@@ -47,7 +47,7 @@ class FileResult:
         return self.application_id is not None
 
 
-def _safe_filename(name: str) -> str:
+def safe_filename(name: str) -> str:
     # Bazı tarayıcılar tam yol gönderir; yalnızca dosya adı saklanır.
     base = name.replace("\\", "/").rsplit("/", 1)[-1].strip()
     return (base or "dosya")[:255]
@@ -94,7 +94,7 @@ def upload_cvs(
 
     try:
         for file in files:
-            filename = _safe_filename(file.filename)
+            filename = safe_filename(file.filename)
             if not file.data:
                 results.append(FileResult(filename, status_code=422, detail=EMPTY_FILE))
                 continue

@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import applications, audit, auth, candidates, jobs, users
+from app.api import applications, audit, auth, candidates, cv_checks, jobs, users
 from app.core.db import get_session_factory
 from app.core.errors import DomainError, FieldValidationError, translate_validation_errors
 from app.services import pipeline
@@ -24,6 +24,7 @@ def _requeue_in_background(app: FastAPI) -> None:
     def run() -> None:
         try:
             pipeline.requeue_unfinished(session_factory)
+            pipeline.requeue_unfinished_cv_checks(session_factory)
         except Exception:
             logger.exception("Açılışta yeniden kuyruğa alma başarısız")
 
@@ -84,6 +85,7 @@ app.include_router(applications.router, prefix="/api")
 app.include_router(applications.notes_router, prefix="/api")
 app.include_router(candidates.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
+app.include_router(cv_checks.router, prefix="/api")
 
 
 @app.get("/api/health")
