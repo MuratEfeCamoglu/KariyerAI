@@ -10,6 +10,7 @@ from app.core.db import Base, UTCDateTime, utc_now
 class UserRole(StrEnum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
+    SEEKER = "seeker"
 
 
 class User(Base):

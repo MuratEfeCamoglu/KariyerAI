@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.db import get_session_factory
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import DbSession, StaffUser
 from app.models import ApplicationStatus, ProcessingStatus
 from app.models.job import Job
 from app.schemas.application import (
@@ -41,18 +41,18 @@ def _with_stats(job: Job, stats: JobStats) -> JobListItem:
 
 
 @router.get("")
-def list_jobs(_user: CurrentUser, db: DbSession) -> list[JobListItem]:
+def list_jobs(_user: StaffUser, db: DbSession) -> list[JobListItem]:
     return [_with_stats(job, stats) for job, stats in jobs_service.list_jobs(db)]
 
 
 @router.post("", status_code=201)
-def create_job(body: JobCreate, user: CurrentUser, db: DbSession) -> JobOut:
+def create_job(body: JobCreate, user: StaffUser, db: DbSession) -> JobOut:
     job = jobs_service.create_job(db, data=body.model_dump(), actor_id=user.id)
     return JobOut.model_validate(job)
 
 
 @router.get("/{job_id}")
-def get_job(job_id: int, _user: CurrentUser, db: DbSession) -> JobListItem:
+def get_job(job_id: int, _user: StaffUser, db: DbSession) -> JobListItem:
     return _with_stats(*jobs_service.get_job_with_stats(db, job_id))
 
 
@@ -74,7 +74,7 @@ def update_job(
     job_id: int,
     body: JobUpdate,
     background_tasks: BackgroundTasks,
-    user: CurrentUser,
+    user: StaffUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> JobOut:
@@ -90,7 +90,7 @@ def update_job(
 def rescore_job(
     job_id: int,
     background_tasks: BackgroundTasks,
-    user: CurrentUser,
+    user: StaffUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> QueuedApplications:
@@ -102,7 +102,7 @@ def rescore_job(
 @router.get("/{job_id}/applications")
 def list_applications(
     job_id: int,
-    _user: CurrentUser,
+    _user: StaffUser,
     db: DbSession,
     min_score: Annotated[int | None, Query(ge=0, le=100)] = None,
     status: Annotated[list[ApplicationStatus] | None, Query()] = None,
@@ -153,7 +153,7 @@ def list_applications(
 
 
 @router.delete("/{job_id}", status_code=204)
-def delete_job(job_id: int, user: CurrentUser, db: DbSession) -> None:
+def delete_job(job_id: int, user: StaffUser, db: DbSession) -> None:
     jobs_service.delete_job(db, job_id=job_id, actor_id=user.id)
 
 
@@ -167,7 +167,7 @@ def upload_cvs(
     job_id: int,
     files: Annotated[list[UploadFile], File(description="1–20 adet PDF/DOCX, her biri ≤ 5 MB")],
     background_tasks: BackgroundTasks,
-    user: CurrentUser,
+    user: StaffUser,
     db: DbSession,
     storage: Annotated[FileStorage, Depends(get_storage)],
     session_factory: SessionFactoryDep,
