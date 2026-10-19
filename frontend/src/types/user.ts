@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "recruiter";
+export type UserRole = "admin" | "recruiter" | "seeker";
 
 export interface User {
   id: number;
@@ -26,4 +26,10 @@ export interface UserUpdate {
   role?: UserRole;
   is_active?: boolean;
   password?: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  full_name: string;
+  password: string;
 }

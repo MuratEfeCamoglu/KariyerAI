@@ -1,29 +1,15 @@
-import { Plus, Trash2 } from "lucide-react";
 import { useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { ApiError, getFieldError } from "../api/client.ts";
 import { Button } from "../components/Button.tsx";
-import { ChipInput } from "../components/ChipInput.tsx";
+import { CriteriaFields } from "../components/CriteriaFields.tsx";
+import { FieldMessage } from "../components/FieldMessage.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { TextField } from "../components/TextField.tsx";
 import { useCreateJob, useJob, useUpdateJob } from "../hooks/useJobs.ts";
-import {
-  EDUCATION_LABELS,
-  EDUCATION_OPTIONS,
-  JOB_LIMITS,
-  JOB_STATUS_LABELS,
-  LANGUAGE_LEVELS,
-  SCORE_WEIGHTS,
-} from "../lib/constants.ts";
-import type {
-  EducationLevel,
-  Job,
-  JobInput,
-  JobLanguage,
-  JobStatus,
-  LanguageLevel,
-} from "../types/job.ts";
+import { JOB_LIMITS, JOB_STATUS_LABELS, SCORE_WEIGHTS } from "../lib/constants.ts";
+import type { Job, JobInput, JobStatus } from "../types/job.ts";
 
 const EMPTY_JOB: JobInput = {
   title: "",
@@ -51,15 +37,6 @@ function toJobInput(job: Job): JobInput {
   };
 }
 
-// Genişlik içermez: aynı öğeye w-full ile başka bir genişlik verilince w-full kazanıyordu.
-const fieldBaseClass =
-  "h-10 rounded-md border bg-surface px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
-const selectClass = `${fieldBaseClass} w-full`;
-
-function FieldMessage({ error }: { error: string | undefined }) {
-  return error === undefined ? null : <p className="mt-1 text-xs text-danger">{error}</p>;
-}
-
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-line bg-surface p-6 shadow-xs">
@@ -81,17 +58,12 @@ interface JobFormProps {
 function JobForm({ initial, submitLabel, cancelTo, error, pending, onSubmit }: JobFormProps) {
   const [form, setForm] = useState<JobInput>(initial);
   const descriptionId = useId();
-  const experienceId = useId();
-  const educationId = useId();
 
   const set = <K extends keyof JobInput>(key: K, value: JobInput[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
-  const setLanguage = (index: number, patch: Partial<JobLanguage>) => {
-    set(
-      "languages",
-      form.languages.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-    );
+  const update = (patch: Partial<JobInput>) => {
+    setForm((current) => ({ ...current, ...patch }));
   };
   const fieldError = (field: string) => getFieldError(error, field);
 
@@ -171,129 +143,7 @@ function JobForm({ initial, submitLabel, cancelTo, error, pending, onSubmit }: J
         </Section>
 
         <Section title="Değerlendirme kriterleri">
-          <ChipInput
-            label="Zorunlu beceriler"
-            placeholder="Ör. Python"
-            max={JOB_LIMITS.skillsMax}
-            value={form.required_skills}
-            error={fieldError("required_skills")}
-            onChange={(value) => {
-              set("required_skills", value);
-            }}
-          />
-          <ChipInput
-            label="Tercih edilen beceriler"
-            placeholder="Ör. Docker"
-            max={JOB_LIMITS.skillsMax}
-            value={form.preferred_skills}
-            error={fieldError("preferred_skills")}
-            onChange={(value) => {
-              set("preferred_skills", value);
-            }}
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor={experienceId} className="mb-1 block text-sm font-medium text-ink">
-                Minimum deneyim (yıl)
-              </label>
-              <input
-                id={experienceId}
-                type="number"
-                min={0}
-                max={JOB_LIMITS.experienceMax}
-                step={1}
-                value={form.min_experience_years}
-                onChange={(event) => {
-                  set("min_experience_years", event.target.valueAsNumber || 0);
-                }}
-                className={`${selectClass} ${fieldError("min_experience_years") === undefined ? "border-line-strong" : "border-danger"}`}
-              />
-              <FieldMessage error={fieldError("min_experience_years")} />
-            </div>
-            <div>
-              <label htmlFor={educationId} className="mb-1 block text-sm font-medium text-ink">
-                Minimum eğitim
-              </label>
-              <select
-                id={educationId}
-                value={form.min_education}
-                onChange={(event) => {
-                  set("min_education", event.target.value as EducationLevel);
-                }}
-                className={`${selectClass} border-line-strong`}
-              >
-                {EDUCATION_OPTIONS.map((level) => (
-                  <option key={level} value={level}>
-                    {EDUCATION_LABELS[level]}
-                  </option>
-                ))}
-              </select>
-              <FieldMessage error={fieldError("min_education")} />
-            </div>
-          </div>
-
-          <fieldset>
-            <div className="mb-1 flex items-baseline justify-between">
-              <legend className="text-sm font-medium text-ink">Diller</legend>
-              <span className="text-xs text-ink-subtle">
-                {form.languages.length}/{JOB_LIMITS.languagesMax}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {form.languages.map((item, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    aria-label={`Dil ${String(index + 1)}`}
-                    placeholder="Ör. İngilizce"
-                    value={item.language}
-                    onChange={(event) => {
-                      setLanguage(index, { language: event.target.value });
-                    }}
-                    className={`${fieldBaseClass} min-w-0 flex-1 ${getFieldError(error, `languages.${String(index)}`) === undefined ? "border-line-strong" : "border-danger"}`}
-                  />
-                  <select
-                    aria-label={`Dil ${String(index + 1)} seviyesi`}
-                    value={item.level}
-                    onChange={(event) => {
-                      setLanguage(index, { level: event.target.value as LanguageLevel });
-                    }}
-                    className={`${fieldBaseClass} w-24 shrink-0 border-line-strong`}
-                  >
-                    {LANGUAGE_LEVELS.map((level) => (
-                      <option key={level} value={level}>
-                        {level}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    variant="ghost"
-                    aria-label={`Dil ${String(index + 1)} kaldır`}
-                    onClick={() => {
-                      set(
-                        "languages",
-                        form.languages.filter((_, i) => i !== index),
-                      );
-                    }}
-                  >
-                    <Trash2 size={16} strokeWidth={1.75} />
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <FieldMessage error={fieldError("languages")} />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-2"
-              disabled={form.languages.length >= JOB_LIMITS.languagesMax}
-              onClick={() => {
-                set("languages", [...form.languages, { language: "", level: "B1" }]);
-              }}
-            >
-              <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-              Dil ekle
-            </Button>
-          </fieldset>
+          <CriteriaFields value={form} error={error} onChange={update} />
         </Section>
 
         <Section title="Durum">

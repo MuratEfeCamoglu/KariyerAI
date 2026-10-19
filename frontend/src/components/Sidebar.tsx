@@ -1,21 +1,22 @@
-import { Briefcase, LogOut, ScrollText, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, FileSearch, LogOut, ScrollText, Users, type LucideIcon } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 
 import { useLogout } from "../hooks/useAuth.ts";
 import { ROLE_LABELS } from "../lib/constants.ts";
-import type { User } from "../types/user.ts";
+import type { User, UserRole } from "../types/user.ts";
 
 interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  adminOnly: boolean;
+  roles: UserRole[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/jobs", label: "İlanlar", icon: Briefcase, adminOnly: false },
-  { to: "/users", label: "Kullanıcılar", icon: Users, adminOnly: true },
-  { to: "/audit", label: "Denetim", icon: ScrollText, adminOnly: true },
+  { to: "/jobs", label: "İlanlar", icon: Briefcase, roles: ["admin", "recruiter"] },
+  { to: "/users", label: "Kullanıcılar", icon: Users, roles: ["admin"] },
+  { to: "/audit", label: "Denetim", icon: ScrollText, roles: ["admin"] },
+  { to: "/cv-checks", label: "CV Değerlendirmelerim", icon: FileSearch, roles: ["seeker"] },
 ];
 
 interface SidebarProps {
@@ -25,7 +26,7 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const logout = useLogout();
   const navigate = useNavigate();
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "admin");
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
 
   const handleLogout = () => {
     logout.mutate(undefined, {

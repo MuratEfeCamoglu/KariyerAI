@@ -25,6 +25,15 @@ export const recruiterUser: User = {
   created_at: "2026-10-15T10:00:00Z",
 };
 
+export const seekerUser: User = {
+  id: 3,
+  email: "aday@example.com",
+  full_name: "Can Aday",
+  role: "seeker",
+  is_active: true,
+  created_at: "2026-10-19T10:00:00Z",
+};
+
 export function jsonResponse(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
     status,
