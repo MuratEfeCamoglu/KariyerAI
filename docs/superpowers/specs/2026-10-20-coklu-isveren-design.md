@@ -1,6 +1,6 @@
 # KariyerAI — Çoklu İşveren: Kendi Kaydolan, Birbirinden Yalıtılmış İK Uzmanları
 
-> Durum: kullanıcı tarafından onaylandı (2026-10-20)
+> Durum: kullanıcı tarafından onaylandı (2026-10-20); uygulandı
 > Bu doküman onaylanınca ISKELET.md (sürüm 1.5), CLAUDE.md ve README buna göre güncellenir.
 > Önceki adım: [CV geliştirme](2026-10-19-cv-gelistirme-design.md) (`feat/cv-gelistirme` dalı). Bu iş o dalın üstüne kurulur.
 

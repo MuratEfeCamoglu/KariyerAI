@@ -1,8 +1,8 @@
 # KariyerAI
 
 ## Proje
-AI destekli, iki taraflı CV değerlendirme aracı. **İşveren tarafı:** CV'leri (PDF/DOCX) okur, yapılandırır, ilan kriterlerine göre 0–100 arası kanıtlı uyum puanı verir ve adayları sıralar; son kararı her zaman İK uzmanı verir, sistem otomatik eleme yapmaz. **İş arayan tarafı:** kayıt olan kişi kendi CV'sini kendi girdiği iş kriterlerine göre değerlendirir ve kanıtlı eksiklik raporu alır.
-- Kapsam, özellikler (F1–F12), veri modeli, API, puanlama formülü: @ISKELET.md (çelişkide ISKELET.md geçerlidir)
+AI destekli, iki taraflı CV değerlendirme aracı. **İşveren tarafı:** CV'leri (PDF/DOCX) okur, yapılandırır, ilan kriterlerine göre 0–100 arası kanıtlı uyum puanı verir ve adayları sıralar; son kararı her zaman İK uzmanı verir, sistem otomatik eleme yapmaz. İK uzmanı kendi kaydolur, admin onaylar; her uzmanın çalışma alanı kapalıdır (başkasının kaydı 404), admin işveren verisini görmez. **İş arayan tarafı:** kayıt olan kişi kendi CV'sini kendi girdiği iş kriterlerine göre değerlendirir ve kanıtlı eksiklik raporu alır.
+- Kapsam, özellikler (F1–F17), veri modeli, API, puanlama formülü: @ISKELET.md (çelişkide ISKELET.md geçerlidir)
 - Agent yetkileri, yasaklar, görev döngüsü, "bitti" tanımı: @AGENT.md
 
 ## Teknoloji Yığını
@@ -17,7 +17,8 @@ AI destekli, iki taraflı CV değerlendirme aracı. **İşveren tarafı:** CV'le
 Backend (`backend/` içinde):
 - Kurulum: `uv sync` → `copy .env.example .env` (macOS/Linux: `cp`) → `uv run alembic upgrade head`
 - İlk admin: `uv run python -m app.cli create-admin --email admin@example.com` (şifre gizli girişle sorulur)
-- Demo verisi: `uv run python -m app.cli seed-demo` (performans testi için: `--applications 500`)
+- Demo verisi: `uv run python -m app.cli seed-demo --owner ik@example.com` (ilan bu onaylı İK uzmanına açılır; `--owner` yoksa ilk onaylı İK; performans testi için: `--applications 500`)
+- İlan aktarma: `uv run python -m app.cli transfer-jobs --from admin@example.com --to ik@example.com` (kaynağın tüm ilanlarını onaylı bir İK uzmanına devreder)
 - Geliştirme: `uv run fastapi dev app/main.py` (http://localhost:8000, docs: /docs)
 - Test: `uv run pytest`
 - Lint/format: `uv run ruff check .` ve `uv run ruff format --check .`

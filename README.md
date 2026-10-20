@@ -123,8 +123,8 @@ kullanılan pozisyon/tarih ve okul/seviye kayıtlarıyla birlikte gösterilir. S
     <td width="50%"><img src="docs/images/denetim-kaydi.png" alt="Denetim kaydı: kim, ne zaman, ne yaptı"></td>
   </tr>
   <tr>
-    <td>E-posta ve şifreyle giriş. Kullanıcıları yönetici ekler; iki rol var: Admin ve İK uzmanı.</td>
-    <td>Yöneticiler son 500 olayı görür. Kayıtlarda ad, e-posta veya CV metni bulunmaz.</td>
+    <td>E-posta ve şifreyle giriş. İK uzmanları kendi kaydolur, yönetici onaylar; yönetici yalnızca hesapları yönetir.</td>
+    <td>Yöneticiler hesap olaylarını (giriş, ekleme, onay, ret) görür. Kayıtlarda ad, e-posta veya CV metni bulunmaz.</td>
   </tr>
 </table>
 
@@ -184,8 +184,16 @@ npm install
 npm run dev                   # http://localhost:5173
 ```
 
-**3.** Tarayıcıda http://localhost:5173 adresini açın ve yönetici hesabıyla giriş yapın. Diğer İK
-kullanıcılarını **Kullanıcılar** sayfasından ekleyebilirsiniz.
+**3.** Tarayıcıda http://localhost:5173 adresini açın. **İlk İK hesabı** iki yoldan açılır:
+
+- İK uzmanı **Kayıt ol** sayfasında "İşe alım yapıyorum"u seçip kaydolur; yönetici hesabıyla giriş
+  yapıp **Kullanıcılar** sayfasındaki "Onay bekleyenler" bölümünden **Onayla**'ya basar.
+- Ya da yönetici **Kullanıcılar** sayfasından İK hesabını doğrudan ekler (onaylı açılır).
+
+Yönetici yalnızca hesapları yönetir; ilan ve aday verisini göremez. Her İK uzmanı yalnızca kendi
+ilanlarını ve adaylarını görür. Demo verisini bir İK hesabına açmak için
+`seed-demo --owner ik@example.com`, eski ilanları bir İK hesabına taşımak için
+`transfer-jobs --from admin@example.com --to ik@example.com` komutunu kullanın.
 
 Varsayılan ayarda (`LLM_PROVIDER=fake`) uygulama **API anahtarı olmadan** çalışır. Bu sahte istemci
 gerçek bir ayrıştırıcı değildir; denemek ve test etmek içindir. Gerçek CV'ler için aşağıdaki

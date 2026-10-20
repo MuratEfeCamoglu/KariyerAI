@@ -1,7 +1,7 @@
 # KariyerAI — Proje İskeleti ve Sınırları
 
 > Bu dosya projenin tek doğruluk kaynağıdır (single source of truth). CLAUDE.md ve AGENT.md bu dosyaya dayanır; çelişki olursa **bu dosya geçerlidir**.
-> Son güncelleme: 2026-10-19 · Sürüm: 1.4 (iki taraflı uygulama: iş arayan tarafı — CV geliştirme, F13–F15)
+> Son güncelleme: 2026-10-20 · Sürüm: 1.5 (çoklu işveren: kendi kaydolan, birbirinden yalıtılmış İK uzmanları; admin onayı, F16–F17)
 
 ---
 
@@ -14,10 +14,10 @@
 Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı eşleştirme motoru, iş arayanın kendi CV'sini kendi girdiği iş kriterlerine göre değerlendirmesi ve **eksiklik raporu** alması için de kullanılır ("CV geliştirme"). İşveren tarafı ("işe uygunluk") yukarıdaki akıştır.
 
 **Hedef kullanıcı:**
-- **İK uzmanı (recruiter):** İlan açar, CV yükler, sıralamayı inceler, aday durumunu günceller, not alır.
-- **Yönetici (admin):** Recruiter'ın her şeyini yapar + kullanıcı yönetimi + aday verisini kalıcı silme (KVKK talebi).
+- **İK uzmanı (recruiter):** Kendi e-postasıyla kaydolur, yönetici onayından sonra çalışır. İlan açar, CV yükler, sıralamayı inceler, aday durumunu günceller, not alır, kendi adaylarını kalıcı siler (KVKK talebi). Çalışma alanı kapalıdır: başka İK uzmanlarının verisini göremez.
+- **Yönetici (admin):** Yalnızca hesapları yönetir: kullanıcı ekler, rol/aktiflik değiştirir, İK kayıtlarını onaylar veya reddeder, hesap olaylarını görür. İlanlara, adaylara ve başvurulara erişemez.
 - **İş arayan (seeker):** Kendi kaydolur; yalnızca kendi CV değerlendirmelerini görür. İşveren ilanlarına, adaylara ve başvurulara erişemez.
-- İşveren tarafı tek bir şirketin İK ekibidir (tek kiracı / single-tenant), 1–20 kullanıcı. Çoklu işveren §2.2'de planlanıyor.
+- Şirket/ekip kavramı yoktur; yalıtım **kullanıcı başınadır** (F17). Aynı şirketten iki İK uzmanı kaydolsa bile birbirlerinin verisini görmez.
 
 **Başarı ölçütleri (MVP sonunda ölçülür):**
 - B1: 20 CV'lik bir yükleme, yüklemeden itibaren **≤ 5 dakika** içinde tamamen ayrıştırılıp puanlanmış sıralı listeye dönüşür.
@@ -33,8 +33,8 @@ Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı e�
 
 | # | Özellik | Öncelik | Kabul Kriteri (ölçülebilir) |
 |---|---|---|---|
-| F1 | **Kimlik doğrulama ve roller** | Zorunlu | (a) E-posta + şifre ile giriş; başarılı girişte httpOnly, SameSite=Lax cookie'de 8 saat geçerli JWT. (b) Yanlış şifrede 401 ve genel mesaj ("E-posta veya şifre hatalı"). (c) Şifre en az 10 karakter; bcrypt ile hash'lenir, düz metin hiçbir yerde saklanmaz/loglanmaz. (d) Rolü `recruiter` olan kullanıcı `/api/users` uçlarına eriştiğinde 403 alır (API testiyle doğrulanır). (e) İlk admin `uv run python -m app.cli create-admin --email admin@example.com` ile oluşturulur; şifre terminalde gizli girişle sorulur. (f) Aynı IP'den 1 dakikada 10'dan fazla başarısız giriş → 429 (API testiyle doğrulanır). |
-| F2 | **Kullanıcı yönetimi** (admin) | Zorunlu | Admin kullanıcı ekleyebilir, rolünü değiştirebilir, pasifleştirebilir. Pasif kullanıcı giriş yapamaz (401). Admin kendini pasifleştiremez (400). |
+| F1 | **Kimlik doğrulama ve roller** | Zorunlu | (a) E-posta + şifre ile giriş; başarılı girişte httpOnly, SameSite=Lax cookie'de 8 saat geçerli JWT. (b) Yanlış şifrede 401 ve genel mesaj ("E-posta veya şifre hatalı"). (c) Şifre en az 10 karakter; bcrypt ile hash'lenir, düz metin hiçbir yerde saklanmaz/loglanmaz. (d) Rolü `recruiter` olan kullanıcı `/api/users` uçlarına eriştiğinde, `admin` ise işveren uçlarında (`/jobs*`, `/applications*`, `/notes*`, `/candidates*`) 403 alır (API testiyle doğrulanır). (e) İlk admin `uv run python -m app.cli create-admin --email admin@example.com` ile oluşturulur; şifre terminalde gizli girişle sorulur. (f) Aynı IP'den 1 dakikada 10'dan fazla başarısız giriş → 429 (API testiyle doğrulanır). |
+| F2 | **Kullanıcı yönetimi** (admin) | Zorunlu | Admin kullanıcı ekleyebilir, rolünü değiştirebilir, pasifleştirebilir. Pasif kullanıcı giriş yapamaz (401). Admin kendini pasifleştiremez (400). Admin onay bekleyen İK kaydını onaylar (`POST /users/{id}/approve`) ya da reddeder (`POST /users/{id}/reject`, hesap silinir); ayrıntı F16. Admin'in `POST /users` ile açtığı hesaplar onaylı doğar. |
 | F3 | **İlan yönetimi** | Zorunlu | İlan CRUD. Alanlar: başlık (zorunlu, 3–120 karakter), departman, açıklama (≤ 5000 karakter), zorunlu beceriler (1–20 adet), tercih edilen beceriler (0–20), minimum deneyim yılı (0–40 tam sayı), minimum eğitim seviyesi (`none`/`high_school`/`associate`/`bachelor`/`master`/`phd`), diller (0–5, her biri dil + seviye `A1`–`C2`), durum (`open`/`closed`). Geçersiz alan → 422 ve alan bazlı hata mesajı. `closed` ilana CV yüklenemez (409). |
 | F4 | **CV yükleme ve metin çıkarma** | Zorunlu | (a) İlan detay sayfasından tek seferde 1–20 dosya sürükle-bırak/seçerek yüklenir. (b) Yalnızca `.pdf` ve `.docx`, dosya başına ≤ 5 MB; aksi halde o dosya 422 ile reddedilir, diğerleri işlenir. (c) Dosya MIME türü içerikten (magic bytes) doğrulanır, uzantıya güvenilmez. (d) Aynı dosya (SHA-256 aynı) aynı ilana ikinci kez yüklenirse 409 "Bu CV bu ilana zaten yüklendi". (e) Çıkarılan metin < 200 karakter ise aday `parse_status=failed`, hata: "Metin çıkarılamadı (taranmış/görsel PDF olabilir)". (f) Yükleme isteği N dosya için ≤ N × 2 sn içinde 202 döner (20 dosya ≤ 40 sn); ayrıştırma arka planda sürer. |
 | F5 | **AI ile CV ayrıştırma** | Zorunlu | (a) CV metni LLM'e gönderilir; çıktı §3.4'teki `ParsedCV` şemasına Pydantic ile doğrulanır. Doğrulama başarısızsa 1 kez yeniden denenir, yine başarısızsa `parse_status=failed`. (b) `ParsedCV` şemasında yaş, doğum tarihi, cinsiyet, medeni hal, din, uyruk, fotoğraf alanı **yoktur**. (c) Tek CV ayrıştırma p95 ≤ 30 sn. (d) Değerlendirme seti: `backend/evals/cvs/` altında 10 sentetik CV + elle etiketlenmiş beklenen JSON; `uv run python -m evals.run` beceri çıkarma recall'unun ≥ %80 olduğunu raporlar (gerçek API anahtarı ister, CI'da çalışmaz). |
@@ -43,11 +43,13 @@ Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı e�
 | F8 | **Aday detayı** | Zorunlu | Puan, kalem kalem puan kırılımı (kriter, karşılandı/karşılanmadı, kanıt alıntısı), AI özeti, ayrıştırılmış CV (deneyimler, eğitim, beceriler, diller), orijinal dosyayı indirme bağlantısı, durum değiştirme, notlar ve durum geçmişi tek sayfada görünür. Sayfada "Bu puan bir öneridir; karar İK uzmanına aittir." uyarısı sabit görünür. |
 | F9 | **Başvuru durum akışı** | Zorunlu | Durumlar: `new` → `reviewing` → `shortlisted` → `interview` → `hired`; her durumdan `rejected`'a geçilebilir; `rejected` ve `hired` dahil her durumdan herhangi bir duruma geri alınabilir (serbest geçiş). Her değişiklik `audit_logs`'a (kim, ne zaman, eski → yeni) yazılır. **Sistem durumu asla kendisi değiştirmez** (yalnızca kullanıcı isteğiyle). |
 | F10 | **Notlar** | Zorunlu | Başvuruya 1–2000 karakter not eklenir; yazar ve zaman damgası görünür. Not yalnızca yazarı tarafından silinebilir (başkası → 403). |
-| F11 | **KVKK: aday verisini silme** | Zorunlu | Admin bir adayı kalıcı siler: aday kaydı, tüm başvuruları, notları ve diskteki CV dosyası silinir; işlem sonrası dosya diskte bulunmaz (testle doğrulanır). `audit_logs`'a yalnızca "aday #id silindi" yazılır (kişisel veri yazılmaz). |
-| F12 | **Denetim kaydı (audit log)** | Zorunlu | `payload` hiçbir zaman kişisel veri (ad, e-posta, telefon, **orijinal dosya adı**, CV metni) içermez; yalnızca id, durum, puan, model/prompt sürümü. Şu olaylar kayda geçer: giriş, ilan oluşturma/güncelleme, CV yükleme, ayrıştırma sonucu, puanlama sonucu (puan + kullanılan model adı + prompt sürümü), durum değişikliği, aday silme. Admin `/audit` sayfasında son 500 kaydı tarih sırasıyla görür. |
+| F11 | **KVKK: aday verisini silme** | Zorunlu | Adayın sahibi olan İK uzmanı (adayın başvurusunun ilanını açan kişi) adayı kalıcı siler; başkasının adayı → 404, admin → 403. Aday kaydı, tüm başvuruları, notları ve diskteki CV dosyası silinir; işlem sonrası dosya diskte bulunmaz (testle doğrulanır). `audit_logs`'a yalnızca "aday #id silindi" yazılır (kişisel veri yazılmaz). |
+| F12 | **Denetim kaydı (audit log)** | Zorunlu | `payload` hiçbir zaman kişisel veri (ad, e-posta, telefon, **orijinal dosya adı**, CV metni) içermez; yalnızca id, durum, puan, model/prompt sürümü. Şu olaylar kayda geçer: giriş, ilan oluşturma/güncelleme, CV yükleme, ayrıştırma sonucu, puanlama sonucu (puan + kullanılan model adı + prompt sürümü), durum değişikliği, aday silme. Admin `/audit` sayfasında yalnızca hesap olaylarını (`entity_type` = `user`: giriş, `user.create`, `user.update`, `user.approve`, `user.reject`) görür; süzülmüş kayıtların son 500'ü tarih sırasıyla gelir. İlan, aday, başvuru ve `cv_check` olayları kayda yine geçer ama admin'e gösterilmez. |
 | F13 | **İş arayan kaydı** | (a) `POST /auth/register` herkese açıktır; ad, e-posta, şifre (≥ 10 karakter) alır, hesabı her zaman `seeker` rolüyle açar (istekteki rol yok sayılır) ve oturum cookie'si set eder (201). (b) Kayıtlı e-posta → 409. (c) Aynı IP'den 1 dakikada 5'ten fazla kayıt denemesi → 429. (d) `seeker` rolündeki kullanıcı tüm işveren uçlarında (`/jobs*`, `/applications*`, `/notes*`, `/candidates*`, `/users*`, `/audit`) 403 alır (API testiyle doğrulanır). (e) Arayüzde iş arayan işveren sayfalarına giderse `/cv-checks`'e, işveren kullanıcısı `/cv-checks`'e giderse `/jobs`'a yönlenir. |
 | F14 | **CV değerlendirme (iş arayan)** | (a) İş arayan hedef işin başlığını ve kriterlerini (F3'teki alanlar ve sınırlar: zorunlu/tercih edilen beceriler, min. deneyim, min. eğitim, diller; isteğe bağlı ilan metni yalnızca not olarak saklanır) girer ve tek CV yükler (F4b–e kuralları). Geçersiz kriter → 422 alan bazlı hata, dosya diske yazılmaz. (b) Yanıt 202; ayrıştırma ve puanlama arka planda, F5–F6 ile aynı kurallarla (puan yalnızca §3.5 formülüyle) yapılır. (c) İş arayan yalnızca kendi kayıtlarını listeler/görür/siler/yeniden dener; başkasının kaydı 404. (d) Silmede kayıt ve diskteki CV dosyası kalıcı silinir. (e) Kullanıcı başına son 24 saatte en fazla 10 değerlendirme → 429. (f) İş arayan verisi `candidates`/`applications` tablolarına girmez; hiçbir işveren ekranında görünmez. |
 | F15 | **Eksiklik raporu** | (a) Değerlendirme detayında eksikler önem sırasıyla listelenir: kanıtı bulunamayan/doğrulanamayan zorunlu beceriler → deneyim açığı (istenen ve CV'den hesaplanan yıl) → eğitim açığı → eksik/seviyesi yazılmamış/yetersiz diller → tercih edilen beceriler. (b) Eksikler ve öneri cümleleri puan kırılımından **kodla** üretilir (yeni prompt yok); öneri dili "sahipsen / biliyorsan" biçimindedir, adayı sahip olmadığı beceriyi yazmaya yönlendirmez. (c) Karşılanan kalemler CV'den kanıt alıntısıyla "Güçlü yanların" olarak gösterilir. (d) Sayfada "Bu değerlendirme yapay zekâ desteklidir; işverenlerin değerlendirmesi farklı olabilir." uyarısı sabit görünür. |
+| F16 | **İK kaydı ve admin onayı** | Zorunlu | (a) `POST /auth/register` isteğine `account_type` (`seeker` varsayılan / `recruiter`) eklenir; rol yine istekten alınmaz. `seeker` → F13 gibi 201 + cookie. `recruiter` → hesap `is_approved=false` açılır, yanıt 202 `{"status": "pending_approval"}`, cookie set edilmez. Kayıt hız sınırı (5/dk/IP) iki tür için ortaktır. (b) Onay bekleyen hesapla giriş: şifre doğruysa 403 "Hesabınız yönetici onayı bekliyor"; şifre yanlışsa genel 401. Onaylanmamış hesap hiçbir uçta oturum açamaz. (c) `POST /users/{id}/approve` (admin) → 200 `UserOut`; zaten onaylıysa 409; audit `user.approve`. (d) `POST /users/{id}/reject` (admin) → 204, hesap kalıcı silinir (aynı e-postayla yeniden kayıt olunabilir); onaylı hesapta 409 "Yalnızca onay bekleyen hesaplar reddedilebilir"; audit `user.reject` (yalnızca id). (e) `GET /users` yanıtındaki kullanıcılarda `is_approved` bulunur. (f) Arayüzde kayıt ekranında hesap türü seçilir; İK kaydı sonrası "onay bekleniyor" ekranı görünür; admin `/users` sayfasında "Onay bekleyenler" bölümünden Onayla/Reddet yapar, sidebar'da bekleyen sayısı rozetle görünür. |
+| F17 | **Çalışma alanı yalıtımı** | Zorunlu | (a) Tüm işveren uçları yalnızca onaylı `recruiter` içindir; `admin` ve `seeker` → 403. (b) Sahiplik `jobs.created_by` üzerinden türetilir (başvuru, aday ve not ilan üzerinden). Başkasının ilanı, başvurusu, notu veya adayı için her uç (liste dışındaki tümü: detay, güncelleme, silme, CV yükleme, yeniden puanlama, yeniden deneme, durum, not, CV indirme, aday silme) **404** döner ve hiç olmayan kayıtla aynı mesajı verir; listeler yalnızca kendi kayıtlarını içerir (API testiyle her uç için doğrulanır). (c) İK uzmanı başına son 24 saatte en fazla 100 CV yüklenebilir; istek sınırı aşacaksa tümüyle 429 "Günlük CV sınırına ulaştınız (100). Kalan hakkınız: N." olur ve hiçbir dosya diske yazılmaz. Yeniden puanlama ve yeniden deneme kotaya sayılmaz. (d) `uv run python -m app.cli transfer-jobs --from <e-posta> --to <e-posta>` kaynağın tüm ilanlarını aktif, onaylı bir İK uzmanına aktarır (hedef uygun değilse hata + çıkış kodu 1; audit `job.transfer`, payload yalnızca kullanıcı id'leri). `seed-demo` ilanı `--owner <e-posta>` ile verilen (yoksa ilk onaylı) İK uzmanına açar; İK hesabı yoksa "Önce bir İK hesabı oluşturun" hatası verir. |
 
 ### 2.2 Sonraki Sürümler (MVP sonrası, şimdi yapılmaz)
 - OCR ile taranmış PDF desteği.
@@ -57,8 +59,8 @@ Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı e�
 - Docker Compose + PostgreSQL ile üretim kurulumu.
 - Playwright uçtan uca testler.
 - İngilizce arayüz.
-- **Çoklu işveren:** birden fazla şirketin kendi kapalı çalışma alanıyla (ilanlar, adaylar, kullanıcılar birbirinden yalıtılmış) kullanması — ayrı tasarım dokümanıyla planlanıyor.
 - İş arayan için serbest ilan metninden kriterleri AI ile çıkarma (yeni prompt gerektirir).
+- Şirket/ekip kavramı: aynı şirketin İK uzmanlarının ilan paylaşması, davet bağlantısı; e-posta doğrulama. (Kullanıcı başına yalıtım F17 ile yapıldı.)
 
 ### 2.3 Kapsam Dışı (yapılmayacak)
 - **Otomatik eleme / otomatik ret** — KVKK m.11 (münhasıran otomatik işlemeye itiraz hakkı) ve ayrımcılık riski nedeniyle; sistem yalnızca öneri sunar.
@@ -89,44 +91,46 @@ Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı e�
 | Servisler | `backend/app/services/` | İş mantığı: `cv_extract` (PDF/DOCX→metin), `cv_parser` (metin→ParsedCV), `anonymizer` (puanlama girdisinden kişisel veriyi çıkarma), `scoring` (deterministik formül + kanıt doğrulama), `pipeline` (arka plan iş akışı), `audit`. |
 | LLM katmanı | `backend/app/llm/` | `LLMClient` arayüzü; `GroqClient` ve `GeminiClient` (gerçek) ve `FakeLLMClient` (test/çevrimdışı). Prompt'lar `prompts/` altında sürüm numaralı dosyalar (`parse_v1.md`, `score_v1.md`). |
 | Depolama | `backend/app/storage/` | CV dosyalarını `UPLOAD_DIR/<uuid>.<ext>` olarak yazma/okuma/silme. Orijinal dosya adı yalnızca DB'de tutulur. |
-| Frontend | `frontend/src/` | Sayfalar, API istemcisi, bileşenler. Rotalar: `/login`, `/register`, `/jobs` (işveren ana sayfası), `/jobs/new`, `/jobs/:id`, `/jobs/:id/edit`, `/applications/:id`, `/users` (admin), `/audit` (admin), `/cv-checks` (iş arayan ana sayfası), `/cv-checks/new`, `/cv-checks/:id`. Oturumsuz kullanıcı `/login`'e yönlenir; admin olmayan `/users`/`/audit`'e giderse `/jobs`'a yönlenir; rol uyuşmazlığında F13e geçerlidir. |
+| Frontend | `frontend/src/` | Sayfalar, API istemcisi, bileşenler. Rotalar: `/login`, `/register`, `/jobs` (işveren ana sayfası), `/jobs/new`, `/jobs/:id`, `/jobs/:id/edit`, `/applications/:id`, `/users` (admin), `/audit` (admin), `/cv-checks` (iş arayan ana sayfası), `/cv-checks/new`, `/cv-checks/:id`. Oturumsuz kullanıcı `/login`'e yönlenir. Ana sayfalar: admin → `/users`, İK uzmanı → `/jobs`, iş arayan → `/cv-checks`. Admin işveren sayfalarına (`/jobs*`, `/applications/*`) giderse `/users`'a, İK uzmanı `/users`/`/audit`'e giderse `/jobs`'a yönlenir; iş arayan işveren sayfalarına giderse `/cv-checks`'e yönlenir (F13e). Kayıt sonrası onay bekleyen İK hesabı için `/register` sayfasında onay bekleme ekranı gösterilir. |
 
 ### 3.3 API Uçları (hepsi `/api` önekli, JSON)
 | Metot | Yol | Yetki | Açıklama |
 |---|---|---|---|
 | POST | `/auth/login` | herkes | Cookie set eder |
-| POST | `/auth/register` | herkes | İş arayan hesabı açar + cookie (F13) |
+| POST | `/auth/register` | herkes | `account_type` ile iş arayan (201 + cookie, F13) veya İK hesabı (202 `pending_approval`, cookie yok, F16) açar |
 | POST | `/auth/logout` | giriş | Cookie siler |
 | GET | `/auth/me` | giriş | Oturumdaki kullanıcı |
 | GET/POST | `/users` | admin | Liste / oluştur |
 | PATCH | `/users/{id}` | admin | Rol, aktiflik, şifre |
-| GET/POST | `/jobs` | giriş | Liste (her ilan için başvuru sayısı, en yüksek ve ortalama puan) / oluştur |
-| GET/PATCH/DELETE | `/jobs/{id}` | giriş | Detay / güncelle / sil (başvurusu olan ilan silinemez → 409; kapatılır) |
-| POST | `/jobs/{id}/cvs` | giriş | multipart, 1–20 dosya → 202 + oluşan başvuru id'leri |
-| GET | `/jobs/{id}/applications` | giriş | `?min_score=&status=&parse_status=&page=`; satır: aday adı, puan, 5 kalem puanı, son pozisyon, toplam deneyim yılı, durum, parse/score durumu ve hatası, yüklenme zamanı |
-| POST | `/jobs/{id}/rescore` | giriş | Tüm başvuruları yeniden puanla → 202 |
-| POST | `/applications/{id}/retry` | giriş | Başarısız ayrıştırma/puanlamayı yeniden dene → 202 |
-| GET | `/applications/{id}` | giriş | Detay (puan kırılımı, aday, notlar, geçmiş) |
-| PATCH | `/applications/{id}/status` | giriş | `{status}` |
-| POST | `/applications/{id}/notes` | giriş | Not ekle |
-| DELETE | `/notes/{id}` | yazar | Not sil |
-| GET | `/candidates/{id}/cv` | giriş | Orijinal dosyayı indir |
-| DELETE | `/candidates/{id}` | admin | KVKK kalıcı silme |
-| GET | `/audit` | admin | Son 500 kayıt |
+| POST | `/users/{id}/approve` | admin | Onay bekleyen İK hesabını onayla → 200 (F16) |
+| POST | `/users/{id}/reject` | admin | Onay bekleyen İK hesabını reddet, hesabı sil → 204 (F16) |
+| GET/POST | `/jobs` | İK uzmanı | Liste (her ilan için başvuru sayısı, en yüksek ve ortalama puan) / oluştur |
+| GET/PATCH/DELETE | `/jobs/{id}` | İK uzmanı | Detay / güncelle / sil (başvurusu olan ilan silinemez → 409; kapatılır) |
+| POST | `/jobs/{id}/cvs` | İK uzmanı | multipart, 1–20 dosya → 202 + oluşan başvuru id'leri |
+| GET | `/jobs/{id}/applications` | İK uzmanı | `?min_score=&status=&parse_status=&page=`; satır: aday adı, puan, 5 kalem puanı, son pozisyon, toplam deneyim yılı, durum, parse/score durumu ve hatası, yüklenme zamanı |
+| POST | `/jobs/{id}/rescore` | İK uzmanı | Tüm başvuruları yeniden puanla → 202 |
+| POST | `/applications/{id}/retry` | İK uzmanı | Başarısız ayrıştırma/puanlamayı yeniden dene → 202 |
+| GET | `/applications/{id}` | İK uzmanı | Detay (puan kırılımı, aday, notlar, geçmiş) |
+| PATCH | `/applications/{id}/status` | İK uzmanı | `{status}` |
+| POST | `/applications/{id}/notes` | İK uzmanı | Not ekle |
+| DELETE | `/notes/{id}` | yazar (İK uzmanı) | Not sil |
+| GET | `/candidates/{id}/cv` | İK uzmanı | Orijinal dosyayı indir |
+| DELETE | `/candidates/{id}` | İK uzmanı (adayın sahibi) | KVKK kalıcı silme (F11) |
+| GET | `/audit` | admin | Hesap olaylarının (`entity_type` = `user`) son 500 kaydı (F12) |
 | GET | `/cv-checks` | seeker | Kendi değerlendirmeleri (yeniden eskiye) |
 | POST | `/cv-checks` | seeker | multipart: `criteria` (JSON metni) + `file` → 202 |
 | GET/DELETE | `/cv-checks/{id}` | sahibi | Detay + `gaps` / kalıcı silme |
 | POST | `/cv-checks/{id}/retry` | sahibi | Başarısız ayrıştırma/puanlamayı yeniden dene → 202 |
 | GET | `/health` | herkes | `{"status":"ok"}` |
 
-"giriş" yetkisi işveren uçlarında yalnızca `admin`/`recruiter` demektir; `seeker` bu uçlarda 403 alır (F13d).
+"İK uzmanı" yetkisi yalnızca onaylı `recruiter` demektir ve yalnızca kendi verisini kapsar (F17); `admin` ve `seeker` işveren uçlarında 403 alır (F1d, F13d). Başkasının kaydı 404 döner.
 
 Hata biçimi her yerde aynı: `{"detail": "<Türkçe mesaj>"}` veya 422'de FastAPI'nin alan bazlı listesi.
 
 ### 3.4 Veri Modeli
 ```
 users(id PK, email UNIQUE, full_name, password_hash, role ENUM(admin,recruiter,seeker),
-      is_active BOOL, created_at)
+      is_active BOOL, is_approved BOOL, created_at)
 
 jobs(id PK, title, department, description, required_skills JSON[str],
      preferred_skills JSON[str], min_experience_years INT, min_education ENUM,
@@ -160,6 +164,8 @@ cv_checks(id PK, owner_id FK users ON DELETE CASCADE, title, job_text,
           created_at, updated_at)
 ```
 - İlişkiler: `jobs 1–N applications N–1 candidates`; `applications 1–N notes`.
+- `users.is_approved`: İK kaydı `false` doğar (admin onaylayana kadar giriş yapamaz); diğer her yol (seeker kaydı, admin'in açtığı hesaplar, `create-admin`) `true`. Migration'da mevcut satırlar `true` olur.
+- Sahiplik için ayrı sütun yoktur: `jobs.created_by` tek kaynaktır; başvuru, aday ve not sahipliği ilan üzerinden türetilir.
 - MVP'de her yükleme yeni bir `candidate` + tek `application` oluşturur. Aynı ilana tekrar yükleme kontrolü: `file_hash` + `job_id`.
 
 **`ParsedCV` şeması (LLM ayrıştırma çıktısı):**
@@ -319,7 +325,7 @@ Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirili
 - **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). İkisi birlikte de kullanılabilir: `LLM_PROVIDER=gemini,groq` sağlayıcıları öncelik sırasıyla dener; birincinin kotası dolunca (429) bildirdiği bekleme süresi boyunca sıradaki kullanılır, sonra birinciye dönülür (`app/llm/fallback_client.py`). `GEMINI_MODEL` de sıralı liste olabilir (ücretsiz kota model başınadır). `LLM_PARSE_PROVIDER` / `LLM_SCORE_PROVIDER` ayrıştırma ve puanlamayı ayrı zincirlere yönlendirir (`app/llm/task_router.py`); ör. ayrıştırma `groq,gemini`, puanlama `gemini,groq` ile Gemini CV başına tek istek harcar. Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
-- **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru. İş arayan hesapları bu sayıya dahil değildir; LLM kotası kullanıcı başına günlük sınırla korunur (F14e).
+- **V5 — Herkese açık kayıt; çalışma alanı kullanıcı başınadır.** İK uzmanı ve iş arayan kendi kaydolur; İK hesapları admin onayıyla açılır, ilan başına en fazla ~500 başvuru. LLM kotası kullanıcı başına günlük sınırla korunur (iş arayan 10 değerlendirme, F14e; İK uzmanı 100 CV, F17c).
 - **V6 — Puan ağırlıkları** sabittir (40/25/15/10/10) ve ilan bazında değiştirilemez (MVP).
 - **V7 — CV dili** Türkçe veya İngilizce; arayüz ve AI özeti Türkçe.
 - **V8 — Yalnızca PDF (metin katmanlı) ve DOCX**; OCR yok.
