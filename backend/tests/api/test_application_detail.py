@@ -270,16 +270,17 @@ def test_audit_lists_newest_first_for_admin_only(
 
     assert entries[0]["action"] == "auth.login"
     assert entries[0]["actor_name"] == admin.full_name
+    # Admin yalnızca hesap olaylarını görür; işveren olayları çalışma alanına özeldir.
     actions = [e["action"] for e in entries]
-    for expected in ("cv.upload", "cv.parse", "score.result", "application.status", "job.create"):
-        assert expected in actions
+    for hidden in ("cv.upload", "cv.parse", "score.result", "application.status", "job.create"):
+        assert hidden not in actions
     timestamps = [e["created_at"] for e in entries]
     assert timestamps == sorted(timestamps, reverse=True)
 
 
 def test_audit_returns_at_most_500(admin_client: TestClient, db: Session) -> None:
     for i in range(510):
-        audit.record(db, actor_id=None, action="test.event", entity_type="test", entity_id=i)
+        audit.record(db, actor_id=None, action="test.event", entity_type="user", entity_id=i)
     db.commit()
 
     entries = admin_client.get("/api/audit").json()

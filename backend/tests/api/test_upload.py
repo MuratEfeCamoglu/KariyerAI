@@ -1,5 +1,6 @@
 import io
 import time
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db import utc_now
 from app.models import Application, AuditLog, Candidate, ProcessingStatus
 from app.storage.files import FileStorage
 from tests.conftest import FIXTURES
@@ -283,3 +285,56 @@ def test_job_stats_and_delete_conflict_after_upload(
     response = recruiter_client.delete(f"/api/jobs/{job_id}")
     assert response.status_code == 409
     assert "kapatabilirsiniz" in response.json()["detail"]
+
+
+# --- Günlük CV sınırı (çoklu işveren) ---
+
+
+def _bulk_candidates(db: Session, job_id: int, count: int, *, age_hours: float = 0) -> None:
+    created = utc_now() - timedelta(hours=age_hours)
+    for i in range(count):
+        candidate = Candidate(
+            original_filename="x.pdf",
+            stored_path="yok.pdf",
+            file_hash=f"{job_id:04d}{i:060d}",
+            cv_text="",
+            parse_status=ProcessingStatus.DONE,
+            created_at=created,
+        )
+        db.add(candidate)
+        db.flush()
+        db.add(Application(job_id=job_id, candidate_id=candidate.id))
+    db.commit()
+
+
+def _distinct_pdfs(n: int) -> list[FileTuple]:
+    return [_file(f"cv{i}.pdf", _unique_pdf(1000 + i)) for i in range(n)]
+
+
+def test_daily_cv_limit(
+    recruiter_client: TestClient, job_id: int, db: Session, storage: FileStorage
+) -> None:
+    _bulk_candidates(db, job_id, 95)
+    before = sorted(storage.base_dir.glob("*")) if storage.base_dir.exists() else []
+
+    response = _upload(recruiter_client, job_id, _distinct_pdfs(6))
+
+    assert response.status_code == 429
+    assert "Kalan hakkınız: 5." in response.json()["detail"]
+    after = sorted(storage.base_dir.glob("*")) if storage.base_dir.exists() else []
+    assert after == before
+    assert _upload(recruiter_client, job_id, _distinct_pdfs(5)).status_code == 202
+
+
+def test_daily_cv_limit_window(recruiter_client: TestClient, job_id: int, db: Session) -> None:
+    _bulk_candidates(db, job_id, 100, age_hours=25)
+
+    assert _upload(recruiter_client, job_id, _distinct_pdfs(1)).status_code == 202
+
+
+def test_daily_cv_limit_per_owner(
+    recruiter_client: TestClient, job_id: int, db: Session, foreign_application: Application
+) -> None:
+    _bulk_candidates(db, foreign_application.job_id, 100)
+
+    assert _upload(recruiter_client, job_id, _distinct_pdfs(1)).status_code == 202

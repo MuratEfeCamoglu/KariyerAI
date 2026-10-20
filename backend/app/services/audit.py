@@ -41,10 +41,14 @@ RECENT_LIMIT = 500
 
 
 def list_recent(db: Session, limit: int = RECENT_LIMIT) -> list[tuple[AuditLog, str | None]]:
-    """F12: son kayıtlar, yeniden eskiye; işlemi yapanın adıyla (sistem işleri için None)."""
+    """F12: son hesap olayları, yeniden eskiye; işlemi yapanın adıyla (sistem işleri için None).
+
+    Yönetici işveren çalışma alanlarını göremez; yalnızca kullanıcı/hesap kayıtları döner.
+    """
     rows = db.execute(
         select(AuditLog, User.full_name)
         .outerjoin(User, User.id == AuditLog.actor_id)
+        .where(AuditLog.entity_type == "user")
         .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         .limit(limit)
     ).all()

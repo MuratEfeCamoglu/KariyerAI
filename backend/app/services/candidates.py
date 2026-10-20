@@ -1,10 +1,17 @@
 import hashlib
 from dataclasses import dataclass
+from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, FieldValidationError, NotFoundError
+from app.core.db import utc_now
+from app.core.errors import (
+    ConflictError,
+    FieldValidationError,
+    NotFoundError,
+    TooManyRequestsError,
+)
 from app.models import Application, Candidate, Job, JobStatus, ProcessingStatus
 from app.services import audit
 from app.services.cv_extract import (
@@ -19,6 +26,9 @@ from app.services.pipeline import PARSE_FAILED
 from app.storage.files import FileStorage
 
 MAX_FILES_PER_UPLOAD = 20
+# LLM kotasını tek bir İK hesabının tüketmesini önler (kayan 24 saat, işveren başına).
+DAILY_CV_LIMIT = 100
+_LIMIT_WINDOW = timedelta(hours=24)
 
 DUPLICATE_CV = "Bu CV bu ilana zaten yüklendi"
 TOO_LARGE = "Dosya 5 MB'tan büyük"
@@ -63,6 +73,20 @@ def _existing_hashes(db: Session, job_id: int, hashes: set[str]) -> set[str]:
     )
 
 
+def _check_daily_limit(db: Session, owner_id: int, incoming: int) -> None:
+    recent = db.scalar(
+        select(func.count(Candidate.id))
+        .join(Application, Application.candidate_id == Candidate.id)
+        .join(Job, Job.id == Application.job_id)
+        .where(Job.created_by == owner_id, Candidate.created_at >= utc_now() - _LIMIT_WINDOW)
+    )
+    remaining = max(0, DAILY_CV_LIMIT - (recent or 0))
+    if incoming > remaining:
+        raise TooManyRequestsError(
+            f"Günlük CV sınırına ulaştınız ({DAILY_CV_LIMIT}). Kalan hakkınız: {remaining}."
+        )
+
+
 def upload_cvs(
     db: Session,
     storage: FileStorage,
@@ -86,6 +110,7 @@ def upload_cvs(
         raise FieldValidationError(
             "files", f"Tek seferde en fazla {MAX_FILES_PER_UPLOAD} dosya yüklenebilir"
         )
+    _check_daily_limit(db, owner_id, len(files))
 
     hashes = {hashlib.sha256(file.data).hexdigest() for file in files}
     seen_hashes = _existing_hashes(db, job_id, hashes)

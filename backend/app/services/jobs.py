@@ -133,6 +133,23 @@ def update_job(
     return JobUpdateResult(job=job, criteria_changed=bool(CRITERIA_FIELDS & set(changed_fields)))
 
 
+def transfer_jobs(db: Session, *, from_user_id: int, to_user_id: int) -> int:
+    """Bir kullanıcının tüm ilanlarını başka bir İK uzmanına devreder; devredilen sayıyı döner."""
+    jobs = list(db.scalars(select(Job).where(Job.created_by == from_user_id).order_by(Job.id)))
+    for job in jobs:
+        job.created_by = to_user_id
+        audit.record(
+            db,
+            actor_id=None,
+            action="job.transfer",
+            entity_type="job",
+            entity_id=job.id,
+            payload={"from_user_id": from_user_id, "to_user_id": to_user_id},
+        )
+    db.commit()
+    return len(jobs)
+
+
 def delete_job(db: Session, *, job_id: int, actor_id: int, owner_id: int) -> None:
     job = get_job(db, job_id, owner_id=owner_id)
     if db.scalar(select(Application.id).where(Application.job_id == job_id).limit(1)) is not None:
