@@ -102,10 +102,13 @@ export function LoginPage() {
           </form>
 
           <p className="mt-6 text-sm text-ink-muted">
-            İş arıyorsun ve hesabın yok mu?{" "}
+            Hesabın yok mu?{" "}
             <Link to="/register" className="font-medium text-accent-700 hover:underline">
               Kayıt ol
             </Link>
+          </p>
+          <p className="mt-2 text-sm text-ink-subtle">
+            İK uzmanları da kaydolabilir; hesaplar yönetici onayıyla açılır.
           </p>
           <p className="mt-2 text-sm text-ink-subtle">
             Şifrenizi mi unuttunuz? Yöneticinize başvurun.

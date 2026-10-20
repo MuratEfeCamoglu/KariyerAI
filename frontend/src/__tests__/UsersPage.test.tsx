@@ -154,4 +154,54 @@ describe("UsersPage", () => {
     await screen.findByText("Mehmet Uzman");
     expect(screen.queryByRole("list", { name: "Onay bekleyenler" })).not.toBeInTheDocument();
   });
+
+  it("onay bekleyen satırında kayıt tarihini gösterir", async () => {
+    const pending = {
+      ...recruiterUser,
+      id: 8,
+      full_name: "Bekleyen Kişi",
+      is_approved: false,
+      created_at: "2026-10-05T10:00:00Z",
+    };
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, adminUser);
+      if (method === "GET" && path === "/users") return jsonResponse(200, [adminUser, pending]);
+      return undefined;
+    });
+    renderRoute("/users");
+
+    const list = await screen.findByRole("list", { name: "Onay bekleyenler" });
+    expect(within(list).getByText(/Kayıt: .*2026/)).toBeInTheDocument();
+  });
+
+  it("iş arayan satırında rolü düz metin olarak gösterir", async () => {
+    const seeker = { ...recruiterUser, id: 9, full_name: "Selin Arayan", role: "seeker" as const };
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, adminUser);
+      if (method === "GET" && path === "/users") return jsonResponse(200, [adminUser, seeker]);
+      return undefined;
+    });
+    renderRoute("/users");
+
+    await screen.findByText("Selin Arayan");
+    expect(screen.queryByRole("combobox", { name: "Selin Arayan rolü" })).not.toBeInTheDocument();
+    expect(screen.getByText("İş arayan")).toBeInTheDocument();
+  });
+
+  it("Reddet onayı odak kaybında sıfırlanır", async () => {
+    const pending = { ...recruiterUser, id: 8, full_name: "Bekleyen Kişi", is_approved: false };
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, adminUser);
+      if (method === "GET" && path === "/users") return jsonResponse(200, [adminUser, pending]);
+      return undefined;
+    });
+    renderRoute("/users");
+
+    const list = await screen.findByRole("list", { name: "Onay bekleyenler" });
+    fireEvent.click(within(list).getByRole("button", { name: "Reddet" }));
+    const armed = within(list).getByRole("button", { name: "Emin misiniz? Reddet" });
+    fireEvent.blur(armed);
+
+    expect(within(list).getByRole("button", { name: "Reddet" })).toBeInTheDocument();
+  });
 });

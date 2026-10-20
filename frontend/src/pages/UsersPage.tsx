@@ -15,6 +15,7 @@ import {
   useUsers,
 } from "../hooks/useUsers.ts";
 import { MIN_PASSWORD_LENGTH, ROLE_LABELS, ROLE_OPTIONS } from "../lib/constants.ts";
+import { formatDate } from "../lib/format.ts";
 import type { User, UserRole } from "../types/user.ts";
 
 function formError(error: unknown): string | null {
@@ -164,6 +165,7 @@ function PendingUserRow({ user }: { user: User }) {
       <div>
         <p className="text-sm font-medium text-ink">{user.full_name}</p>
         <p className="text-sm text-ink-muted">{user.email}</p>
+        <p className="text-xs text-ink-subtle">Kayıt: {formatDate(user.created_at)}</p>
         <ErrorBanner message={formError(approve.error ?? reject.error)} />
       </div>
       <div className="flex gap-2">
@@ -182,9 +184,16 @@ function PendingUserRow({ user }: { user: User }) {
           size="sm"
           loading={reject.isPending}
           className={confirmingReject ? "text-danger" : undefined}
+          onBlur={() => {
+            setConfirmingReject(false);
+          }}
           onClick={() => {
             if (confirmingReject) {
-              reject.mutate(user.id);
+              reject.mutate(user.id, {
+                onError: () => {
+                  setConfirmingReject(false);
+                },
+              });
             } else {
               setConfirmingReject(true);
             }
@@ -268,25 +277,29 @@ export function UsersPage() {
                       </td>
                       <td className="px-4 py-3 text-ink-muted">{user.email}</td>
                       <td className="px-4 py-3">
-                        <select
-                          aria-label={`${user.full_name} rolü`}
-                          value={user.role}
-                          // Kendi rolünü düşüren admin bu sayfaya erişimini kaybeder.
-                          disabled={isSelf}
-                          onChange={(event) => {
-                            updateUser.mutate({
-                              id: user.id,
-                              body: { role: event.target.value as UserRole },
-                            });
-                          }}
-                          className="h-8 min-w-36 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
-                        >
-                          {ROLE_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {ROLE_LABELS[option]}
-                            </option>
-                          ))}
-                        </select>
+                        {user.role === "seeker" ? (
+                          <span className="text-ink-muted">{ROLE_LABELS.seeker}</span>
+                        ) : (
+                          <select
+                            aria-label={`${user.full_name} rolü`}
+                            value={user.role}
+                            // Kendi rolünü düşüren admin bu sayfaya erişimini kaybeder.
+                            disabled={isSelf}
+                            onChange={(event) => {
+                              updateUser.mutate({
+                                id: user.id,
+                                body: { role: event.target.value as UserRole },
+                              });
+                            }}
+                            className="h-8 min-w-36 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
+                          >
+                            {ROLE_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {ROLE_LABELS[option]}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button

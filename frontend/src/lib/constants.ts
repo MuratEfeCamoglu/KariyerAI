@@ -149,7 +149,6 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "job.create": "İlan oluşturma",
   "job.update": "İlan güncelleme",
   "job.delete": "İlan silme",
-  "job.transfer": "İlan aktarıldı",
   "job.rescore": "Yeniden puanlama",
   "cv.upload": "CV yükleme",
   "cv.parse": "Ayrıştırma sonucu",
