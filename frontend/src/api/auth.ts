@@ -1,8 +1,12 @@
-import type { LoginRequest, User } from "../types/user.ts";
+import type { LoginRequest, RegisterRequest, User } from "../types/user.ts";
 import { ApiError, apiFetch } from "./client.ts";
 
 export function login(body: LoginRequest): Promise<User> {
   return apiFetch<User>("/auth/login", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function register(body: RegisterRequest): Promise<User> {
+  return apiFetch<User>("/auth/register", { method: "POST", body: JSON.stringify(body) });
 }
 
 export function logout(): Promise<void> {

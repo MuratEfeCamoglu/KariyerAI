@@ -1,7 +1,14 @@
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { adminUser, jsonResponse, mockApi, recruiterUser, renderRoute } from "./testUtils.tsx";
+import {
+  adminUser,
+  jsonResponse,
+  mockApi,
+  recruiterUser,
+  renderRoute,
+  seekerUser,
+} from "./testUtils.tsx";
 import type { User } from "../types/user.ts";
 
 function mockSession(user: User | null) {
@@ -10,6 +17,8 @@ function mockSession(user: User | null) {
       return user ? jsonResponse(200, user) : jsonResponse(401, { detail: "x" });
     }
     if (path === "/users") return jsonResponse(200, [adminUser, recruiterUser]);
+    if (path === "/cv-checks") return jsonResponse(200, []);
+    if (path === "/jobs") return jsonResponse(200, []);
     return undefined;
   });
 }
@@ -61,6 +70,40 @@ describe("rota korumaları", () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/jobs");
+    });
+  });
+
+  it("iş arayanı işveren sayfalarından değerlendirmelerine yönlendirir", async () => {
+    mockSession(seekerUser);
+    const router = renderRoute("/jobs");
+
+    expect(await screen.findByRole("heading", { name: "CV Değerlendirmelerim" })).toBeVisible();
+    expect(router.state.location.pathname).toBe("/cv-checks");
+  });
+
+  it("iş arayanı /users sayfasından değerlendirmelerine yönlendirir", async () => {
+    mockSession(seekerUser);
+    const router = renderRoute("/users");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/cv-checks");
+    });
+  });
+
+  it("İK uzmanını iş arayan sayfasından ilanlara yönlendirir", async () => {
+    mockSession(recruiterUser);
+    const router = renderRoute("/cv-checks");
+
+    expect(await screen.findByRole("heading", { name: "İlanlar" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/jobs");
+  });
+
+  it("kök yolu iş arayan için değerlendirmelere yönlendirir", async () => {
+    mockSession(seekerUser);
+    const router = renderRoute("/");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/cv-checks");
     });
   });
 });

@@ -1,7 +1,7 @@
 # KariyerAI — Proje İskeleti ve Sınırları
 
 > Bu dosya projenin tek doğruluk kaynağıdır (single source of truth). CLAUDE.md ve AGENT.md bu dosyaya dayanır; çelişki olursa **bu dosya geçerlidir**.
-> Son güncelleme: 2026-10-16 · Sürüm: 1.3 (LLM sağlayıcıları Groq ve Gemini; Claude kaldırıldı)
+> Son güncelleme: 2026-10-19 · Sürüm: 1.4 (iki taraflı uygulama: iş arayan tarafı — CV geliştirme, F13–F15)
 
 ---
 
@@ -11,10 +11,13 @@
 
 **Çözüm:** KariyerAI, yüklenen CV'leri (PDF/DOCX) okur, yapay zekâ ile yapılandırılmış veriye çevirir, ilanın kriterleriyle karşılaştırıp **0–100 arası, kalem kalem gerekçelendirilmiş bir uyum puanı** üretir ve adayları sıralar. **Son kararı her zaman insan verir**; sistem öneri sunar, otomatik eleme yapmaz.
 
+Uygulama **iki taraflıdır** (sürüm 1.4): aynı ayrıştırma ve kanıtlı eşleştirme motoru, iş arayanın kendi CV'sini kendi girdiği iş kriterlerine göre değerlendirmesi ve **eksiklik raporu** alması için de kullanılır ("CV geliştirme"). İşveren tarafı ("işe uygunluk") yukarıdaki akıştır.
+
 **Hedef kullanıcı:**
 - **İK uzmanı (recruiter):** İlan açar, CV yükler, sıralamayı inceler, aday durumunu günceller, not alır.
 - **Yönetici (admin):** Recruiter'ın her şeyini yapar + kullanıcı yönetimi + aday verisini kalıcı silme (KVKK talebi).
-- Tek bir şirketin İK ekibi (tek kiracı / single-tenant), 1–20 kullanıcı.
+- **İş arayan (seeker):** Kendi kaydolur; yalnızca kendi CV değerlendirmelerini görür. İşveren ilanlarına, adaylara ve başvurulara erişemez.
+- İşveren tarafı tek bir şirketin İK ekibidir (tek kiracı / single-tenant), 1–20 kullanıcı. Çoklu işveren §2.2'de planlanıyor.
 
 **Başarı ölçütleri (MVP sonunda ölçülür):**
 - B1: 20 CV'lik bir yükleme, yüklemeden itibaren **≤ 5 dakika** içinde tamamen ayrıştırılıp puanlanmış sıralı listeye dönüşür.
@@ -42,6 +45,9 @@
 | F10 | **Notlar** | Zorunlu | Başvuruya 1–2000 karakter not eklenir; yazar ve zaman damgası görünür. Not yalnızca yazarı tarafından silinebilir (başkası → 403). |
 | F11 | **KVKK: aday verisini silme** | Zorunlu | Admin bir adayı kalıcı siler: aday kaydı, tüm başvuruları, notları ve diskteki CV dosyası silinir; işlem sonrası dosya diskte bulunmaz (testle doğrulanır). `audit_logs`'a yalnızca "aday #id silindi" yazılır (kişisel veri yazılmaz). |
 | F12 | **Denetim kaydı (audit log)** | Zorunlu | `payload` hiçbir zaman kişisel veri (ad, e-posta, telefon, **orijinal dosya adı**, CV metni) içermez; yalnızca id, durum, puan, model/prompt sürümü. Şu olaylar kayda geçer: giriş, ilan oluşturma/güncelleme, CV yükleme, ayrıştırma sonucu, puanlama sonucu (puan + kullanılan model adı + prompt sürümü), durum değişikliği, aday silme. Admin `/audit` sayfasında son 500 kaydı tarih sırasıyla görür. |
+| F13 | **İş arayan kaydı** | (a) `POST /auth/register` herkese açıktır; ad, e-posta, şifre (≥ 10 karakter) alır, hesabı her zaman `seeker` rolüyle açar (istekteki rol yok sayılır) ve oturum cookie'si set eder (201). (b) Kayıtlı e-posta → 409. (c) Aynı IP'den 1 dakikada 5'ten fazla kayıt denemesi → 429. (d) `seeker` rolündeki kullanıcı tüm işveren uçlarında (`/jobs*`, `/applications*`, `/notes*`, `/candidates*`, `/users*`, `/audit`) 403 alır (API testiyle doğrulanır). (e) Arayüzde iş arayan işveren sayfalarına giderse `/cv-checks`'e, işveren kullanıcısı `/cv-checks`'e giderse `/jobs`'a yönlenir. |
+| F14 | **CV değerlendirme (iş arayan)** | (a) İş arayan hedef işin başlığını ve kriterlerini (F3'teki alanlar ve sınırlar: zorunlu/tercih edilen beceriler, min. deneyim, min. eğitim, diller; isteğe bağlı ilan metni yalnızca not olarak saklanır) girer ve tek CV yükler (F4b–e kuralları). Geçersiz kriter → 422 alan bazlı hata, dosya diske yazılmaz. (b) Yanıt 202; ayrıştırma ve puanlama arka planda, F5–F6 ile aynı kurallarla (puan yalnızca §3.5 formülüyle) yapılır. (c) İş arayan yalnızca kendi kayıtlarını listeler/görür/siler/yeniden dener; başkasının kaydı 404. (d) Silmede kayıt ve diskteki CV dosyası kalıcı silinir. (e) Kullanıcı başına son 24 saatte en fazla 10 değerlendirme → 429. (f) İş arayan verisi `candidates`/`applications` tablolarına girmez; hiçbir işveren ekranında görünmez. |
+| F15 | **Eksiklik raporu** | (a) Değerlendirme detayında eksikler önem sırasıyla listelenir: kanıtı bulunamayan/doğrulanamayan zorunlu beceriler → deneyim açığı (istenen ve CV'den hesaplanan yıl) → eğitim açığı → eksik/seviyesi yazılmamış/yetersiz diller → tercih edilen beceriler. (b) Eksikler ve öneri cümleleri puan kırılımından **kodla** üretilir (yeni prompt yok); öneri dili "sahipsen / biliyorsan" biçimindedir, adayı sahip olmadığı beceriyi yazmaya yönlendirmez. (c) Karşılanan kalemler CV'den kanıt alıntısıyla "Güçlü yanların" olarak gösterilir. (d) Sayfada "Bu değerlendirme yapay zekâ desteklidir; işverenlerin değerlendirmesi farklı olabilir." uyarısı sabit görünür. |
 
 ### 2.2 Sonraki Sürümler (MVP sonrası, şimdi yapılmaz)
 - OCR ile taranmış PDF desteği.
@@ -51,13 +57,15 @@
 - Docker Compose + PostgreSQL ile üretim kurulumu.
 - Playwright uçtan uca testler.
 - İngilizce arayüz.
+- **Çoklu işveren:** birden fazla şirketin kendi kapalı çalışma alanıyla (ilanlar, adaylar, kullanıcılar birbirinden yalıtılmış) kullanması — ayrı tasarım dokümanıyla planlanıyor.
+- İş arayan için serbest ilan metninden kriterleri AI ile çıkarma (yeni prompt gerektirir).
 
 ### 2.3 Kapsam Dışı (yapılmayacak)
 - **Otomatik eleme / otomatik ret** — KVKK m.11 (münhasıran otomatik işlemeye itiraz hakkı) ve ayrımcılık riski nedeniyle; sistem yalnızca öneri sunar.
-- Aday tarafı portal / adayın kendi başvurması — ürün İK içi bir araçtır.
+- Adayın uygulama içinden işverene başvurması veya işveren ilanlarını görmesi — iş arayan tarafı yalnızca kendi CV'sini kendi girdiği kriterlere göre değerlendirir.
 - Kariyer.net, LinkedIn vb. dış platform entegrasyonları — her biri ayrı sözleşme ve API işi.
 - E-posta/SMS gönderimi, mülakat takvimi, video mülakat — ayrı ürün alanları.
-- Çoklu şirket (multi-tenant), faturalama, ödeme.
+- Faturalama, ödeme.
 - Mobil uygulama (web arayüzü 1280 px ve üzeri masaüstü için tasarlanır; 768 px'te kullanılabilir olması yeterli).
 - SSO / sosyal giriş, şifre sıfırlama e-postası (admin şifreyi yeniden belirler).
 - Yaş, cinsiyet, medeni hal, din, uyruk, fotoğraf gibi korunan özelliklerin çıkarılması veya puanlamada kullanılması — yasal ve etik nedenle **kalıcı olarak** yasak.
@@ -81,12 +89,13 @@
 | Servisler | `backend/app/services/` | İş mantığı: `cv_extract` (PDF/DOCX→metin), `cv_parser` (metin→ParsedCV), `anonymizer` (puanlama girdisinden kişisel veriyi çıkarma), `scoring` (deterministik formül + kanıt doğrulama), `pipeline` (arka plan iş akışı), `audit`. |
 | LLM katmanı | `backend/app/llm/` | `LLMClient` arayüzü; `GroqClient` ve `GeminiClient` (gerçek) ve `FakeLLMClient` (test/çevrimdışı). Prompt'lar `prompts/` altında sürüm numaralı dosyalar (`parse_v1.md`, `score_v1.md`). |
 | Depolama | `backend/app/storage/` | CV dosyalarını `UPLOAD_DIR/<uuid>.<ext>` olarak yazma/okuma/silme. Orijinal dosya adı yalnızca DB'de tutulur. |
-| Frontend | `frontend/src/` | Sayfalar, API istemcisi, bileşenler. Rotalar: `/login`, `/jobs` (ana sayfa), `/jobs/new`, `/jobs/:id`, `/jobs/:id/edit`, `/applications/:id`, `/users` (admin), `/audit` (admin). Oturumsuz kullanıcı `/login`'e yönlenir; admin olmayan `/users`/`/audit`'e giderse `/jobs`'a yönlenir. |
+| Frontend | `frontend/src/` | Sayfalar, API istemcisi, bileşenler. Rotalar: `/login`, `/register`, `/jobs` (işveren ana sayfası), `/jobs/new`, `/jobs/:id`, `/jobs/:id/edit`, `/applications/:id`, `/users` (admin), `/audit` (admin), `/cv-checks` (iş arayan ana sayfası), `/cv-checks/new`, `/cv-checks/:id`. Oturumsuz kullanıcı `/login`'e yönlenir; admin olmayan `/users`/`/audit`'e giderse `/jobs`'a yönlenir; rol uyuşmazlığında F13e geçerlidir. |
 
 ### 3.3 API Uçları (hepsi `/api` önekli, JSON)
 | Metot | Yol | Yetki | Açıklama |
 |---|---|---|---|
 | POST | `/auth/login` | herkes | Cookie set eder |
+| POST | `/auth/register` | herkes | İş arayan hesabı açar + cookie (F13) |
 | POST | `/auth/logout` | giriş | Cookie siler |
 | GET | `/auth/me` | giriş | Oturumdaki kullanıcı |
 | GET/POST | `/users` | admin | Liste / oluştur |
@@ -104,13 +113,19 @@
 | GET | `/candidates/{id}/cv` | giriş | Orijinal dosyayı indir |
 | DELETE | `/candidates/{id}` | admin | KVKK kalıcı silme |
 | GET | `/audit` | admin | Son 500 kayıt |
+| GET | `/cv-checks` | seeker | Kendi değerlendirmeleri (yeniden eskiye) |
+| POST | `/cv-checks` | seeker | multipart: `criteria` (JSON metni) + `file` → 202 |
+| GET/DELETE | `/cv-checks/{id}` | sahibi | Detay + `gaps` / kalıcı silme |
+| POST | `/cv-checks/{id}/retry` | sahibi | Başarısız ayrıştırma/puanlamayı yeniden dene → 202 |
 | GET | `/health` | herkes | `{"status":"ok"}` |
+
+"giriş" yetkisi işveren uçlarında yalnızca `admin`/`recruiter` demektir; `seeker` bu uçlarda 403 alır (F13d).
 
 Hata biçimi her yerde aynı: `{"detail": "<Türkçe mesaj>"}` veya 422'de FastAPI'nin alan bazlı listesi.
 
 ### 3.4 Veri Modeli
 ```
-users(id PK, email UNIQUE, full_name, password_hash, role ENUM(admin,recruiter),
+users(id PK, email UNIQUE, full_name, password_hash, role ENUM(admin,recruiter,seeker),
       is_active BOOL, created_at)
 
 jobs(id PK, title, department, description, required_skills JSON[str],
@@ -134,6 +149,15 @@ notes(id PK, application_id FK ON DELETE CASCADE, author_id FK users, body, crea
 
 audit_logs(id PK, actor_id FK users NULL, action, entity_type, entity_id,
            payload JSON, created_at)
+
+cv_checks(id PK, owner_id FK users ON DELETE CASCADE, title, job_text,
+          required_skills JSON[str], preferred_skills JSON[str], min_experience_years INT,
+          min_education ENUM, languages JSON[{language, level}],
+          original_filename, stored_path, file_hash CHAR(64), cv_text TEXT,
+          parsed_data JSON NULL, parse_status, parse_error NULL,
+          score INT NULL, score_breakdown JSON NULL, ai_summary TEXT NULL,
+          score_status, score_error NULL, llm_model NULL, prompt_version NULL,
+          created_at, updated_at)
 ```
 - İlişkiler: `jobs 1–N applications N–1 candidates`; `applications 1–N notes`.
 - MVP'de her yükleme yeni bir `candidate` + tek `application` oluşturur. Aynı ilana tekrar yükleme kontrolü: `file_hash` + `job_id`.
@@ -295,7 +319,7 @@ Etkisi büyükten küçüğe sıralıdır. Kullanıcı tarafından değiştirili
 - **V2 — LLM sağlayıcıları Groq (varsayılan, `LLM_PROVIDER=groq`) ve Google Gemini (`LLM_PROVIDER=gemini`).** Her ikisi de hem gerçek hem test verisiyle kullanılır (kullanıcı kararı, 2026-10-16). İkisi birlikte de kullanılabilir: `LLM_PROVIDER=gemini,groq` sağlayıcıları öncelik sırasıyla dener; birincinin kotası dolunca (429) bildirdiği bekleme süresi boyunca sıradaki kullanılır, sonra birinciye dönülür (`app/llm/fallback_client.py`). `GEMINI_MODEL` de sıralı liste olabilir (ücretsiz kota model başınadır). `LLM_PARSE_PROVIDER` / `LLM_SCORE_PROVIDER` ayrıştırma ve puanlamayı ayrı zincirlere yönlendirir (`app/llm/task_router.py`); ör. ayrıştırma `groq,gemini`, puanlama `gemini,groq` ile Gemini CV başına tek istek harcar. Anthropic/Claude API hiçbir yerde kullanılmaz. Model adları ortam değişkenlerinden okunur; `LLMClient` arayüzü sayesinde sağlayıcı değiştirilebilir. Ücretsiz katmanların veri koşulları için R3'e bakın.
 - **V3 — Teknoloji yığını:** FastAPI + SQLite (backend), React 19 + Vite + TS + Tailwind 4 (frontend). En yaygın ve Python'un PDF/AI ekosistemine en yakın seçim; DB değişimi bağlantı dizesiyle yapılır.
 - **V4 — KVKK:** Şirket, aday CV'lerinin yurt dışındaki LLM sağlayıcısında işlenmesi için gerekli aydınlatma/rıza ve sözleşme süreçlerini kendisi yürütür; uygulama bunu teknik olarak (anonimleştirme, silme, log'suz kişisel veri) destekler.
-- **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru.
+- **V5 — Tek şirket, 1–20 İK kullanıcısı**, ilan başına en fazla ~500 başvuru. İş arayan hesapları bu sayıya dahil değildir; LLM kotası kullanıcı başına günlük sınırla korunur (F14e).
 - **V6 — Puan ağırlıkları** sabittir (40/25/15/10/10) ve ilan bazında değiştirilemez (MVP).
 - **V7 — CV dili** Türkçe veya İngilizce; arayüz ve AI özeti Türkçe.
 - **V8 — Yalnızca PDF (metin katmanlı) ve DOCX**; OCR yok.

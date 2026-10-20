@@ -81,3 +81,5 @@ class LoginRateLimiter:
 
 
 login_rate_limiter = LoginRateLimiter()
+# Herkese açık kayıt ucu: başarılı ya da başarısız her deneme sayılır (toplu hesap açmayı keser).
+register_rate_limiter = LoginRateLimiter(max_failures=5)

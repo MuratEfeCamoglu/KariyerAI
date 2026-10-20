@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getMe, login, logout } from "../api/auth.ts";
+import { getMe, login, logout, register } from "../api/auth.ts";
 
 export const authKeys = {
   me: ["auth", "me"] as const,
@@ -14,6 +14,16 @@ export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
+    onSuccess: (user) => {
+      queryClient.setQueryData(authKeys.me, user);
+    },
+  });
+}
+
+export function useRegister() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: register,
     onSuccess: (user) => {
       queryClient.setQueryData(authKeys.me, user);
     },

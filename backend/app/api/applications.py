@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.db import get_session_factory
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import DbSession, StaffUser
 from app.schemas.application import (
     ApplicationDetailOut,
     CandidateOut,
@@ -81,13 +81,13 @@ def _detail(db: Session, application_id: int) -> ApplicationDetailOut:
 
 
 @router.get("/{application_id}")
-def get_application(application_id: int, _user: CurrentUser, db: DbSession) -> ApplicationDetailOut:
+def get_application(application_id: int, _user: StaffUser, db: DbSession) -> ApplicationDetailOut:
     return _detail(db, application_id)
 
 
 @router.patch("/{application_id}/status")
 def change_status(
-    application_id: int, body: StatusUpdate, user: CurrentUser, db: DbSession
+    application_id: int, body: StatusUpdate, user: StaffUser, db: DbSession
 ) -> ApplicationDetailOut:
     applications_service.change_status(
         db, application_id=application_id, status=body.status, actor_id=user.id
@@ -96,7 +96,7 @@ def change_status(
 
 
 @router.post("/{application_id}/notes", status_code=201)
-def add_note(application_id: int, body: NoteCreate, user: CurrentUser, db: DbSession) -> NoteOut:
+def add_note(application_id: int, body: NoteCreate, user: StaffUser, db: DbSession) -> NoteOut:
     note = notes_service.add_note(
         db, application_id=application_id, author_id=user.id, body=body.body
     )
@@ -113,7 +113,7 @@ def add_note(application_id: int, body: NoteCreate, user: CurrentUser, db: DbSes
 def retry_application(
     application_id: int,
     background_tasks: BackgroundTasks,
-    user: CurrentUser,
+    user: StaffUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> QueuedApplications:
@@ -123,5 +123,5 @@ def retry_application(
 
 
 @notes_router.delete("/{note_id}", status_code=204)
-def delete_note(note_id: int, user: CurrentUser, db: DbSession) -> None:
+def delete_note(note_id: int, user: StaffUser, db: DbSession) -> None:
     notes_service.delete_note(db, note_id=note_id, actor_id=user.id)

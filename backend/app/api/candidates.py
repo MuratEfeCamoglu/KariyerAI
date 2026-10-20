@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.core.deps import AdminUser, CurrentUser, DbSession
+from app.core.deps import AdminUser, DbSession, StaffUser
 from app.core.errors import NotFoundError
 from app.models import Candidate
 from app.services import candidates as candidates_service
@@ -20,7 +20,7 @@ _MEDIA_TYPES = {
 @router.get("/{candidate_id}/cv")
 def download_cv(
     candidate_id: int,
-    _user: CurrentUser,
+    _user: StaffUser,
     db: DbSession,
     storage: Annotated[FileStorage, Depends(get_storage)],
 ) -> FileResponse:

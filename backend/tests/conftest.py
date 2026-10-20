@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core import security
 from app.core.db import create_db_engine, get_db, get_session_factory
-from app.core.security import login_rate_limiter
+from app.core.security import login_rate_limiter, register_rate_limiter
 from app.main import app
 from app.models import Base, User, UserRole
 from app.services import users as users_service
@@ -28,6 +28,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 ADMIN_PASSWORD = "admin-password-123"
 RECRUITER_PASSWORD = "recruiter-password-123"
+SEEKER_PASSWORD = "seeker-password-123"
 
 
 @pytest.fixture
@@ -52,6 +53,7 @@ def db(session_factory: sessionmaker[Session]) -> Iterator[Session]:
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter() -> None:
     login_rate_limiter.reset()
+    register_rate_limiter.reset()
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +107,18 @@ def recruiter(db: Session) -> User:
     )
 
 
+@pytest.fixture
+def seeker(db: Session) -> User:
+    return users_service.create_user(
+        db,
+        email="aday@example.com",
+        full_name="Can Aday",
+        password=SEEKER_PASSWORD,
+        role=UserRole.SEEKER,
+        actor_id=None,
+    )
+
+
 LoginFn = Callable[[str, str], TestClient]
 
 
@@ -126,3 +140,8 @@ def admin_client(admin: User, login: LoginFn) -> TestClient:
 @pytest.fixture
 def recruiter_client(recruiter: User, login: LoginFn) -> TestClient:
     return login(recruiter.email, RECRUITER_PASSWORD)
+
+
+@pytest.fixture
+def seeker_client(seeker: User, login: LoginFn) -> TestClient:
+    return login(seeker.email, SEEKER_PASSWORD)

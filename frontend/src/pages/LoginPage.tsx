@@ -1,19 +1,21 @@
 import { useState, type SubmitEvent } from "react";
-import { Navigate, useLocation } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 
 import { ApiError } from "../api/client.ts";
 import { Button } from "../components/Button.tsx";
 import { TextField } from "../components/TextField.tsx";
 import { useCurrentUser, useLogin } from "../hooks/useAuth.ts";
+import { homePathFor } from "../lib/constants.ts";
+import type { UserRole } from "../types/user.ts";
 
-function redirectTarget(state: unknown): string {
+function redirectTarget(state: unknown, role: UserRole): string {
   if (typeof state === "object" && state !== null && "from" in state) {
     const { from } = state;
     if (typeof from === "string" && from.startsWith("/") && from !== "/login") {
       return from;
     }
   }
-  return "/jobs";
+  return homePathFor(role);
 }
 
 export function LoginPage() {
@@ -24,7 +26,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
 
   if (user) {
-    return <Navigate to={redirectTarget(location.state)} replace />;
+    return <Navigate to={redirectTarget(location.state, user.role)} replace />;
   }
 
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -46,11 +48,13 @@ export function LoginPage() {
         <div>
           <h2 className="text-3xl font-semibold">CV değerlendirmede kanıtlı, tutarlı öneriler</h2>
           <p className="mt-4 max-w-md text-base text-brand-100">
-            Adaylar ilan kriterlerine göre gerekçeli bir uyum puanıyla sıralanır. Son karar her
-            zaman İK uzmanınındır.
+            İş arayanlar CV'lerini hedefledikleri işe göre geliştirir; işverenler adayları gerekçeli
+            bir uyum puanıyla sıralar. Son karar her zaman insanındır.
           </p>
         </div>
-        <p className="text-sm text-brand-100">Yalnızca şirket içi kullanım içindir.</p>
+        <p className="text-sm text-brand-100">
+          AI çıktısı öneridir; kanıtı doğrulanamayan kalem karşılanmamış sayılır.
+        </p>
       </section>
 
       <section className="flex flex-1 items-center justify-center p-8">
@@ -97,7 +101,13 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-sm text-ink-subtle">
+          <p className="mt-6 text-sm text-ink-muted">
+            İş arıyorsun ve hesabın yok mu?{" "}
+            <Link to="/register" className="font-medium text-accent-700 hover:underline">
+              Kayıt ol
+            </Link>
+          </p>
+          <p className="mt-2 text-sm text-ink-subtle">
             Şifrenizi mi unuttunuz? Yöneticinize başvurun.
           </p>
         </div>

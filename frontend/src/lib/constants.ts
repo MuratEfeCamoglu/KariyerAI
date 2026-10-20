@@ -5,7 +5,13 @@ import type { UserRole } from "../types/user.ts";
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   recruiter: "İK Uzmanı",
+  seeker: "İş arayan",
 };
+
+/** Giriş sonrası ve bilinmeyen adreslerde rolün ana sayfası. */
+export function homePathFor(role: UserRole): string {
+  return role === "seeker" ? "/cv-checks" : "/jobs";
+}
 
 export const ROLE_OPTIONS: UserRole[] = ["recruiter", "admin"];
 
@@ -78,6 +84,9 @@ export function scoreBand(score: number): ScoreBand {
 
 export const AI_DISCLAIMER = "Bu puan bir öneridir; karar İK uzmanına aittir.";
 
+export const SEEKER_DISCLAIMER =
+  "Bu değerlendirme yapay zekâ desteklidir; işverenlerin değerlendirmesi farklı olabilir.";
+
 export const APPLICATION_STATUS_OPTIONS: ApplicationStatus[] = [
   "new",
   "reviewing",
@@ -144,4 +153,9 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "application.status": "Durum değişikliği",
   "application.retry": "Yeniden deneme",
   "candidate.delete": "Aday silme",
+  "cv_check.create": "CV değerlendirme oluşturma",
+  "cv_check.parse": "CV değerlendirme ayrıştırma",
+  "cv_check.score": "CV değerlendirme puanlama",
+  "cv_check.retry": "CV değerlendirme yeniden deneme",
+  "cv_check.delete": "CV değerlendirme silme",
 };

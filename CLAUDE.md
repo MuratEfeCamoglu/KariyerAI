@@ -1,7 +1,7 @@
 # KariyerAI
 
 ## Proje
-İK ekipleri için AI destekli CV değerlendirme aracı: CV'leri (PDF/DOCX) okur, yapılandırır, ilan kriterlerine göre 0–100 arası kanıtlı uyum puanı verir ve adayları sıralar. Son kararı her zaman İK uzmanı verir; sistem otomatik eleme yapmaz.
+AI destekli, iki taraflı CV değerlendirme aracı. **İşveren tarafı:** CV'leri (PDF/DOCX) okur, yapılandırır, ilan kriterlerine göre 0–100 arası kanıtlı uyum puanı verir ve adayları sıralar; son kararı her zaman İK uzmanı verir, sistem otomatik eleme yapmaz. **İş arayan tarafı:** kayıt olan kişi kendi CV'sini kendi girdiği iş kriterlerine göre değerlendirir ve kanıtlı eksiklik raporu alır.
 - Kapsam, özellikler (F1–F12), veri modeli, API, puanlama formülü: @ISKELET.md (çelişkide ISKELET.md geçerlidir)
 - Agent yetkileri, yasaklar, görev döngüsü, "bitti" tanımı: @AGENT.md
 
@@ -50,7 +50,7 @@ backend'de `ruff check`, `ruff format --check`, `mypy app`, `pytest`; frontend'd
 **Genel**
 - Klasör yapısı ISKELET.md §4 ile birebir aynıdır; yeni üst düzey klasör açma.
 - Kod, değişken, dosya adları İngilizce; kullanıcıya görünen metinler ve API hata mesajları Türkçe.
-- Kavram adları her yerde aynı: `Job` (ilan), `Candidate` (aday), `Application` (başvuru = aday × ilan), `Note`, `AuditLog`, `ParsedCV`.
+- Kavram adları her yerde aynı: `Job` (ilan), `Candidate` (aday), `Application` (başvuru = aday × ilan), `Note`, `AuditLog`, `ParsedCV`, `CVCheck` (iş arayanın değerlendirmesi).
 - Yorumu "ne" için değil "neden" için yaz; açık kodu yorumlama.
 
 **Backend**

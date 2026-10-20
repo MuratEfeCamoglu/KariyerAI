@@ -20,7 +20,7 @@ from app.llm.base import (
     LLMRefusalError,
 )
 from app.llm.factory import get_llm_client
-from app.models import Application, Candidate, Job, ProcessingStatus
+from app.models import Application, Candidate, CVCheck, Job, ProcessingStatus
 from app.schemas.parsed_cv import ParsedCV
 from app.services import audit, cv_parser, scoring
 
@@ -239,4 +239,169 @@ def requeue_unfinished(session_factory: SessionFactory) -> list[int]:
         logger.info("Yeniden kuyruğa alınan başvuru sayısı: %s", len(ids))
     for application_id in ids:
         process_application(application_id, session_factory)
+    return ids
+
+
+# --- İş arayan değerlendirmeleri (CVCheck): aynı adımlar, ayrı tablo. ---
+
+
+def _parse_cv_check(
+    check_id: int, session_factory: SessionFactory, llm_factory: LLMFactory
+) -> None:
+    with session_factory() as db:
+        check = db.get(CVCheck, check_id)
+        if check is None or check.parse_status not in _ACTIVE:
+            return
+        check.parse_status = ProcessingStatus.PROCESSING
+        db.commit()
+        cv_text = check.cv_text
+
+    parsed: ParsedCV | None = None
+    error: str | None = None
+    model_name: str | None = None
+    try:
+        llm = llm_factory()
+        with _llm_slots:
+            try:
+                parsed = cv_parser.parse_cv(cv_text, llm)
+            finally:
+                model_name = llm.model_name
+    except (LLMError, ValidationError) as exc:
+        error = _message_for(exc, _PARSE_ERROR_MESSAGES)
+        logger.warning("Ayrıştırma başarısız: cv_check_id=%s (%s)", check_id, type(exc).__name__)
+
+    with session_factory() as db:
+        check = db.get(CVCheck, check_id)
+        if check is None:  # Bu arada sahibi silmiş olabilir.
+            return
+        if parsed is not None:
+            check.parsed_data = parsed.model_dump(mode="json")
+            check.parse_status = ProcessingStatus.DONE
+            check.parse_error = None
+        else:
+            check.parse_status = ProcessingStatus.FAILED
+            check.parse_error = error
+            check.score_status = ProcessingStatus.FAILED
+            check.score_error = PARSE_FAILED
+        payload: dict[str, str] = {
+            "status": check.parse_status.value,
+            "prompt": PARSE_PROMPT_VERSION,
+        }
+        if model_name is not None:
+            payload["model"] = model_name
+        audit.record(
+            db,
+            actor_id=None,
+            action="cv_check.parse",
+            entity_type="cv_check",
+            entity_id=check_id,
+            payload=payload,
+        )
+        db.commit()
+
+
+def _score_cv_check(
+    check_id: int, session_factory: SessionFactory, llm_factory: LLMFactory
+) -> None:
+    with session_factory() as db:
+        check = db.get(CVCheck, check_id)
+        if (
+            check is None
+            or check.score_status not in _ACTIVE
+            or check.parse_status is not ProcessingStatus.DONE
+        ):
+            return
+        parsed = ParsedCV.model_validate(check.parsed_data or {})
+        cv_text = check.cv_text
+        job = check.criteria_job()
+        check.score_status = ProcessingStatus.PROCESSING
+        db.commit()
+
+    evaluation: scoring.ScoreEvaluation | None = None
+    error: str | None = None
+    try:
+        llm = llm_factory()
+        with _llm_slots:
+            evaluation = scoring.evaluate(job, parsed, cv_text, llm)
+    except (LLMError, ValidationError) as exc:
+        error = _message_for(exc, _SCORE_ERROR_MESSAGES)
+        logger.warning("Puanlama başarısız: cv_check_id=%s (%s)", check_id, type(exc).__name__)
+
+    with session_factory() as db:
+        check = db.get(CVCheck, check_id)
+        if check is None or check.score_status is not ProcessingStatus.PROCESSING:
+            return
+        payload: dict[str, str | int]
+        if evaluation is not None:
+            check.score = evaluation.score
+            check.score_breakdown = evaluation.breakdown.model_dump(mode="json")
+            check.ai_summary = evaluation.summary
+            check.llm_model = evaluation.model
+            check.prompt_version = evaluation.prompt_version
+            check.score_status = ProcessingStatus.DONE
+            check.score_error = None
+            payload = {
+                "status": "done",
+                "score": evaluation.score,
+                "model": evaluation.model,
+                "prompt": evaluation.prompt_version,
+            }
+        else:
+            check.score_status = ProcessingStatus.FAILED
+            check.score_error = error
+            payload = {"status": "failed"}
+        audit.record(
+            db,
+            actor_id=None,
+            action="cv_check.score",
+            entity_type="cv_check",
+            entity_id=check_id,
+            payload=payload,
+        )
+        db.commit()
+
+
+def process_cv_check(
+    check_id: int,
+    session_factory: SessionFactory,
+    llm_factory: LLMFactory = get_llm_client,
+) -> None:
+    """Değerlendirmeyi işlenebildiği yere kadar ilerletir; tekrar çağrılması güvenlidir."""
+    try:
+        _parse_cv_check(check_id, session_factory, llm_factory)
+        _score_cv_check(check_id, session_factory, llm_factory)
+    except Exception:
+        logger.exception("Pipeline hatası: cv_check_id=%s", check_id)
+
+
+def unfinished_cv_check_ids(session_factory: SessionFactory) -> list[int]:
+    with session_factory() as db:
+        return list(
+            db.scalars(
+                select(CVCheck.id)
+                .where(
+                    or_(
+                        CVCheck.parse_status.in_(_ACTIVE),
+                        (CVCheck.parse_status == ProcessingStatus.DONE)
+                        & CVCheck.score_status.in_(_ACTIVE),
+                    )
+                )
+                .order_by(CVCheck.id)
+            )
+        )
+
+
+def requeue_unfinished_cv_checks(session_factory: SessionFactory) -> list[int]:
+    ids = unfinished_cv_check_ids(session_factory)
+    if ids:
+        with session_factory() as db:
+            for check in db.scalars(select(CVCheck).where(CVCheck.id.in_(ids))):
+                if check.parse_status is ProcessingStatus.PROCESSING:
+                    check.parse_status = ProcessingStatus.PENDING
+                if check.score_status is ProcessingStatus.PROCESSING:
+                    check.score_status = ProcessingStatus.PENDING
+            db.commit()
+        logger.info("Yeniden kuyruğa alınan değerlendirme sayısı: %s", len(ids))
+    for check_id in ids:
+        process_cv_check(check_id, session_factory)
     return ids
