@@ -193,7 +193,9 @@ npm run dev                   # http://localhost:5173
 Yönetici yalnızca hesapları yönetir; ilan ve aday verisini göremez. Her İK uzmanı yalnızca kendi
 ilanlarını ve adaylarını görür. Demo verisini bir İK hesabına açmak için
 `seed-demo --owner ik@example.com`, eski ilanları bir İK hesabına taşımak için
-`transfer-jobs --from admin@example.com --to ik@example.com` komutunu kullanın.
+`transfer-jobs --from admin@example.com --to ik@example.com` komutunu kullanın. İşten ayrılan bir İK uzmanının rolünü değiştirmeden önce ilanlarını
+`uv run python -m app.cli transfer-jobs --from ... --to ...` ile devredin (ilanı olan İK uzmanının rolü
+değiştirilemez, 409). Pasifleştirilen İK uzmanlarının verisi devredilene kadar yerinde kalır.
 
 Varsayılan ayarda (`LLM_PROVIDER=fake`) uygulama **API anahtarı olmadan** çalışır. Bu sahte istemci
 gerçek bir ayrıştırıcı değildir; denemek ve test etmek içindir. Gerçek CV'ler için aşağıdaki

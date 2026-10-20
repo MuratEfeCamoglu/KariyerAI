@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, User
+from app.models import AuditLog, Job, User
+from app.models.job import EducationLevel, JobStatus
 from tests.conftest import RECRUITER_PASSWORD, LoginFn
 
 NEW_USER = {
@@ -268,3 +269,48 @@ def test_other_admin_cannot_deactivate_last_active_admin(
 
     db.expire_all()
     assert second.patch(f"/api/users/{recruiter.id}", json={"role": "recruiter"}).status_code == 409
+
+
+def _add_job(db: Session, owner: User) -> None:
+    db.add(
+        Job(
+            title="Eski ilan",
+            required_skills=["Python"],
+            min_education=EducationLevel.NONE,
+            status=JobStatus.OPEN,
+            created_by=owner.id,
+        )
+    )
+    db.commit()
+
+
+def test_recruiter_with_jobs_cannot_change_role(
+    admin_client: TestClient, db: Session, recruiter: User
+) -> None:
+    _add_job(db, recruiter)
+
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "seeker"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "İlanı olan İK uzmanının rolü değiştirilemez; önce ilanları aktarın (transfer-jobs)"
+    )
+    db.refresh(recruiter)
+    assert recruiter.role.value == "recruiter"
+
+
+def test_recruiter_with_jobs_can_still_be_deactivated(
+    admin_client: TestClient, db: Session, recruiter: User
+) -> None:
+    _add_job(db, recruiter)
+
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"is_active": False})
+
+    assert response.status_code == 200
+
+
+def test_recruiter_without_jobs_role_change_ok(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "seeker"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "seeker"

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.security import hash_password
+from app.models.job import Job
 from app.models.user import User, UserRole
 from app.services import audit
 
@@ -116,6 +117,18 @@ def update_user(
         )
         if not other_admins:
             raise ConflictError("Sistemde en az bir aktif yönetici kalmalı")
+
+    # İlan sahipliği created_by ile belirlenir; rolü düşen kullanıcının ilanları sahipsiz
+    # kalır, bu yüzden önce transfer-jobs ile devredilmeli.
+    if (
+        role is not None
+        and role is not UserRole.RECRUITER
+        and user.role is UserRole.RECRUITER
+        and db.scalar(select(Job.id).where(Job.created_by == user.id).limit(1)) is not None
+    ):
+        raise ConflictError(
+            "İlanı olan İK uzmanının rolü değiştirilemez; önce ilanları aktarın (transfer-jobs)"
+        )
 
     changes: dict[str, str | bool] = {}
     if full_name is not None:
