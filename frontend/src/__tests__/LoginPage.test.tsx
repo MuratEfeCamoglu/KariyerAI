@@ -85,4 +85,20 @@ describe("LoginPage", () => {
       expect(screen.queryByRole("link", { name: /şifre/i })).not.toBeInTheDocument();
     });
   });
+
+  it("onay bekleyen İK hesabında sunucunun 403 mesajını gösterir", async () => {
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "x" });
+      if (method === "POST" && path === "/auth/login") {
+        return jsonResponse(403, { detail: "Hesabınız yönetici onayı bekliyor" });
+      }
+      return undefined;
+    });
+    renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    fillAndSubmit("ik@example.com", "dogru-sifre-123");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hesabınız yönetici onayı bekliyor");
+  });
 });

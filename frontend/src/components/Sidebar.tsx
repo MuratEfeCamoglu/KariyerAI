@@ -2,6 +2,7 @@ import { Briefcase, FileSearch, LogOut, ScrollText, Users, type LucideIcon } fro
 import { NavLink, useNavigate } from "react-router";
 
 import { useLogout } from "../hooks/useAuth.ts";
+import { useUsers } from "../hooks/useUsers.ts";
 import { ROLE_LABELS } from "../lib/constants.ts";
 import type { User, UserRole } from "../types/user.ts";
 
@@ -13,7 +14,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/jobs", label: "İlanlar", icon: Briefcase, roles: ["admin", "recruiter"] },
+  { to: "/jobs", label: "İlanlar", icon: Briefcase, roles: ["recruiter"] },
   { to: "/users", label: "Kullanıcılar", icon: Users, roles: ["admin"] },
   { to: "/audit", label: "Denetim", icon: ScrollText, roles: ["admin"] },
   { to: "/cv-checks", label: "CV Değerlendirmelerim", icon: FileSearch, roles: ["seeker"] },
@@ -26,6 +27,9 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const logout = useLogout();
   const navigate = useNavigate();
+  // Onay kuyruğu rozeti yalnızca admin içindir; diğer roller /users'ı çağırmaz (403).
+  const users = useUsers({ enabled: user.role === "admin" });
+  const pendingCount = users.data?.filter((item) => !item.is_approved).length ?? 0;
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
 
   const handleLogout = () => {
@@ -57,6 +61,14 @@ export function Sidebar({ user }: SidebarProps) {
           >
             <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
             <span className="hidden xl:inline">{label}</span>
+            {to === "/users" && pendingCount > 0 && (
+              <span
+                aria-label={`${String(pendingCount)} onay bekleyen`}
+                className="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-xs font-medium text-white"
+              >
+                {pendingCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

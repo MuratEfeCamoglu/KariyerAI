@@ -13,6 +13,7 @@ export const adminUser: User = {
   full_name: "Ayşe Yönetici",
   role: "admin",
   is_active: true,
+  is_approved: true,
   created_at: "2026-10-15T10:00:00Z",
 };
 
@@ -22,6 +23,7 @@ export const recruiterUser: User = {
   full_name: "Mehmet Uzman",
   role: "recruiter",
   is_active: true,
+  is_approved: true,
   created_at: "2026-10-15T10:00:00Z",
 };
 
@@ -31,6 +33,7 @@ export const seekerUser: User = {
   full_name: "Can Aday",
   role: "seeker",
   is_active: true,
+  is_approved: true,
   created_at: "2026-10-19T10:00:00Z",
 };
 

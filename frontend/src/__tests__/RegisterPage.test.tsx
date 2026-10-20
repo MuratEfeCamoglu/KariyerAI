@@ -40,7 +40,34 @@ describe("RegisterPage", () => {
       full_name: "Can Aday",
       email: "aday@example.com",
       password: "aday-sifresi-123",
+      account_type: "seeker",
     });
+  });
+
+  it("İşe alım yapıyorum seçilince recruiter kaydı yapar ve onay bekleme mesajını gösterir", async () => {
+    const fetchMock = mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "x" });
+      if (method === "POST" && path === "/auth/register") {
+        return jsonResponse(202, { status: "pending_approval" });
+      }
+      return undefined;
+    });
+    const router = renderRoute("/register");
+    await screen.findByRole("heading", { name: "Kayıt ol" });
+
+    expect(screen.getByRole("radio", { name: "İş arıyorum" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "İşe alım yapıyorum" }));
+    fillAndSubmit();
+
+    expect(
+      await screen.findByText(
+        "Başvurunuz alındı. Yönetici onayladıktan sonra giriş yapabilirsiniz.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Giriş yap" })).toHaveAttribute("href", "/login");
+    expect(router.state.location.pathname).toBe("/register");
+    const call = fetchMock.mock.calls.find(([url]) => url === "/api/auth/register");
+    expect(requestBody(call?.[1])).toMatchObject({ account_type: "recruiter" });
   });
 
   it("kayıtlı e-postada sunucu mesajını gösterir", async () => {

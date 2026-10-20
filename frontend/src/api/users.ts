@@ -12,3 +12,11 @@ export function createUser(body: UserCreate): Promise<User> {
 export function updateUser(id: number, body: UserUpdate): Promise<User> {
   return apiFetch<User>(`/users/${String(id)}`, { method: "PATCH", body: JSON.stringify(body) });
 }
+
+export function approveUser(id: number): Promise<User> {
+  return apiFetch<User>(`/users/${String(id)}/approve`, { method: "POST" });
+}
+
+export function rejectUser(id: number): Promise<void> {
+  return apiFetch<undefined>(`/users/${String(id)}/reject`, { method: "POST" });
+}

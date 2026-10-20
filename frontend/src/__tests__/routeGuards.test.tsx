@@ -64,6 +64,50 @@ describe("rota korumaları", () => {
     });
   });
 
+  it("admini /jobs sayfasından kullanıcılara yönlendirir ve menüde İlanlar göstermez", async () => {
+    mockSession(adminUser);
+    const router = renderRoute("/jobs");
+
+    expect(await screen.findByRole("heading", { name: "Kullanıcılar" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/users");
+    expect(screen.queryByRole("link", { name: "İlanlar" })).not.toBeInTheDocument();
+  });
+
+  it("admini /applications/1 sayfasından kullanıcılara yönlendirir", async () => {
+    mockSession(adminUser);
+    const router = renderRoute("/applications/1");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/users");
+    });
+  });
+
+  it("kök yolu admin için kullanıcılara yönlendirir", async () => {
+    mockSession(adminUser);
+    const router = renderRoute("/");
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/users");
+    });
+  });
+
+  it("admin menüsünde onay bekleyen sayısı rozeti görünür", async () => {
+    mockApi((_method, path) => {
+      if (path === "/auth/me") return jsonResponse(200, adminUser);
+      if (path === "/users") {
+        return jsonResponse(200, [
+          adminUser,
+          { ...recruiterUser, id: 8, is_approved: false },
+          { ...recruiterUser, id: 9, is_approved: false },
+        ]);
+      }
+      return undefined;
+    });
+    renderRoute("/users");
+
+    expect(await screen.findByLabelText("2 onay bekleyen")).toBeInTheDocument();
+  });
+
   it("giriş yapmış kullanıcı /login'e gelirse ilanlara gider", async () => {
     mockSession(recruiterUser);
     const router = renderRoute("/login");

@@ -36,6 +36,7 @@ const detail = {
 function mockAs(user: User) {
   return mockApi((method, path) => {
     if (path === "/auth/me") return jsonResponse(200, user);
+    if (path === "/users") return jsonResponse(200, []);
     if (path === "/applications/7") return jsonResponse(200, detail);
     if (method === "DELETE" && path === "/candidates/11")
       return new Response(null, { status: 204 });
@@ -75,8 +76,8 @@ describe("F11: aday silme", () => {
     vi.unstubAllGlobals();
   });
 
-  it("admin, aday numarasını yazınca kalıcı olarak siler ve ilana döner", async () => {
-    const fetchMock = mockAs(adminUser);
+  it("İK uzmanı, aday numarasını yazınca kalıcı olarak siler ve ilana döner", async () => {
+    const fetchMock = mockAs(recruiterUser);
     const router = renderRoute("/applications/7");
 
     fireEvent.click(await screen.findByRole("button", { name: "Adayı sil (KVKK)" }));
@@ -103,11 +104,13 @@ describe("F11: aday silme", () => {
     );
   });
 
-  it("İK uzmanı silme düğmesini görmez", async () => {
-    mockAs(recruiterUser);
-    renderRoute("/applications/7");
+  it("admin başvuru sayfasına giremez, kullanıcılara yönlenir", async () => {
+    mockAs(adminUser);
+    const router = renderRoute("/applications/7");
 
-    await screen.findByRole("heading", { name: "Deniz Arslan" });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/users");
+    });
     expect(screen.queryByRole("button", { name: "Adayı sil (KVKK)" })).not.toBeInTheDocument();
   });
 });

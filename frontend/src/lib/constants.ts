@@ -10,7 +10,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 /** Giriş sonrası ve bilinmeyen adreslerde rolün ana sayfası. */
 export function homePathFor(role: UserRole): string {
-  return role === "seeker" ? "/cv-checks" : "/jobs";
+  if (role === "seeker") return "/cv-checks";
+  return role === "admin" ? "/users" : "/jobs";
 }
 
 export const ROLE_OPTIONS: UserRole[] = ["recruiter", "admin"];
@@ -143,9 +144,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "auth.login": "Giriş",
   "user.create": "Kullanıcı oluşturma",
   "user.update": "Kullanıcı güncelleme",
+  "user.approve": "Hesap onaylandı",
+  "user.reject": "Hesap reddedildi",
   "job.create": "İlan oluşturma",
   "job.update": "İlan güncelleme",
   "job.delete": "İlan silme",
+  "job.transfer": "İlan aktarıldı",
   "job.rescore": "Yeniden puanlama",
   "cv.upload": "CV yükleme",
   "cv.parse": "Ayrıştırma sonucu",
