@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, FieldValidationError, NotFoundError
-from app.models import Application, Candidate, JobStatus, ProcessingStatus
+from app.models import Application, Candidate, Job, JobStatus, ProcessingStatus
 from app.services import audit
 from app.services.cv_extract import (
     MAX_FILE_BYTES,
@@ -70,13 +70,14 @@ def upload_cvs(
     job_id: int,
     files: list[IncomingFile],
     actor_id: int,
+    owner_id: int,
 ) -> list[FileResult]:
     """F4: dosyaları doğrular, saklar, metni çıkarır ve aday + başvuru oluşturur.
 
     Geçersiz dosya yalnızca kendisi reddedilir; diğerleri işlenir (F4b). Ayrıştırma arka
     planda yapılır; dönen başvuruların pipeline'a verilmesi çağıranın işidir.
     """
-    job = get_job(db, job_id)
+    job = get_job(db, job_id, owner_id=owner_id)
     if job.status is JobStatus.CLOSED:
         raise ConflictError("Kapalı ilana CV yüklenemez")
     if not files:
@@ -166,17 +167,28 @@ def upload_cvs(
     return results
 
 
+def get_owned_candidate(db: Session, candidate_id: int, *, owner_id: int) -> Candidate:
+    # Aday yalnızca ilanı sahibine ait bir başvuru üzerinden erişilebilir.
+    candidate = db.scalar(
+        select(Candidate)
+        .join(Application, Application.candidate_id == Candidate.id)
+        .join(Job, Job.id == Application.job_id)
+        .where(Candidate.id == candidate_id, Job.created_by == owner_id)
+    )
+    if candidate is None:
+        raise NotFoundError("Aday bulunamadı")
+    return candidate
+
+
 def delete_candidate(
-    db: Session, storage: FileStorage, *, candidate_id: int, actor_id: int
+    db: Session, storage: FileStorage, *, candidate_id: int, actor_id: int, owner_id: int
 ) -> None:
     """F11 (KVKK): aday kaydı, tüm başvuruları, notları ve CV dosyası kalıcı olarak silinir.
 
     Başvurular ve notlar veritabanında ON DELETE CASCADE ile silinir. Audit kaydına yalnızca
     "aday #id silindi" yazılır; ad, e-posta, dosya adı gibi kişisel veri yazılmaz.
     """
-    candidate = db.get(Candidate, candidate_id)
-    if candidate is None:
-        raise NotFoundError("Aday bulunamadı")
+    candidate = get_owned_candidate(db, candidate_id, owner_id=owner_id)
     stored_path = candidate.stored_path
     db.delete(candidate)
     audit.record(

@@ -196,24 +196,24 @@ def test_note_on_unknown_application_returns_404(recruiter_client: TestClient) -
 def test_only_author_can_delete_note(
     recruiter_client: TestClient,
     application_id: int,
-    admin: User,
-    login: LoginFn,
+    other_recruiter: User,
+    db: Session,
 ) -> None:
+    from app.models import Note
+
     note_id = recruiter_client.post(
         f"/api/applications/{application_id}/notes", json={"body": "Not"}
     ).json()["id"]
-    recruiter_cookies = dict(recruiter_client.cookies)
+    # Çalışma alanında başka yazarın notu (API'den oluşamaz; yazar kontrolünü ayrıca sınar).
+    foreign_note = Note(application_id=application_id, author_id=other_recruiter.id, body="x")
+    db.add(foreign_note)
+    db.commit()
 
-    admin_client = login(admin.email, ADMIN_PASSWORD)
-    forbidden = admin_client.delete(f"/api/notes/{note_id}")
+    forbidden = recruiter_client.delete(f"/api/notes/{foreign_note.id}")
     assert forbidden.status_code == 403
     assert forbidden.json() == {"detail": "Yalnızca kendi notunuzu silebilirsiniz"}
-
-    admin_client.cookies.clear()
-    for key, value in recruiter_cookies.items():
-        admin_client.cookies.set(key, value)
-    assert admin_client.delete(f"/api/notes/{note_id}").status_code == 204
-    assert admin_client.delete(f"/api/notes/{note_id}").status_code == 404
+    assert recruiter_client.delete(f"/api/notes/{note_id}").status_code == 204
+    assert recruiter_client.delete(f"/api/notes/{note_id}").status_code == 404
 
 
 # --- CV indirme ---

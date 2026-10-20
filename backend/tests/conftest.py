@@ -20,7 +20,18 @@ from app.core import security
 from app.core.db import create_db_engine, get_db, get_session_factory
 from app.core.security import login_rate_limiter, register_rate_limiter
 from app.main import app
-from app.models import Base, User, UserRole
+from app.models import (
+    Application,
+    Base,
+    Candidate,
+    EducationLevel,
+    Job,
+    JobStatus,
+    Note,
+    ProcessingStatus,
+    User,
+    UserRole,
+)
 from app.services import users as users_service
 from app.storage.files import FileStorage, get_storage
 
@@ -105,6 +116,46 @@ def recruiter(db: Session) -> User:
         role=UserRole.RECRUITER,
         actor_id=None,
     )
+
+
+@pytest.fixture
+def other_recruiter(db: Session) -> User:
+    return users_service.create_user(
+        db,
+        email="ik2@example.com",
+        full_name="Elif Başka",
+        password=RECRUITER_PASSWORD,
+        role=UserRole.RECRUITER,
+        actor_id=None,
+    )
+
+
+@pytest.fixture
+def foreign_application(db: Session, other_recruiter: User, storage: FileStorage) -> Application:
+    """Başka bir İK uzmanının ilanı + adayı + başvurusu + notu (yalıtım testleri için)."""
+    job = Job(
+        title="Başkasının ilanı",
+        required_skills=["Python"],
+        min_education=EducationLevel.NONE,
+        status=JobStatus.OPEN,
+        created_by=other_recruiter.id,
+    )
+    stored_name = storage.save((FIXTURES / "cv_elif_kaya.docx").read_bytes(), "docx")
+    candidate = Candidate(
+        original_filename="yabanci.docx",
+        stored_path=stored_name,
+        file_hash="f" * 64,
+        cv_text="Python " * 50,
+        parse_status=ProcessingStatus.DONE,
+    )
+    db.add_all([job, candidate])
+    db.flush()
+    application = Application(job_id=job.id, candidate_id=candidate.id)
+    db.add(application)
+    db.flush()
+    db.add(Note(application_id=application.id, author_id=other_recruiter.id, body="Gizli not"))
+    db.commit()
+    return application
 
 
 @pytest.fixture

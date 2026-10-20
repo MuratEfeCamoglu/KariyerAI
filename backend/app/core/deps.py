@@ -35,17 +35,15 @@ def require_admin(user: CurrentUser) -> User:
 
 AdminUser = Annotated[User, Depends(require_admin)]
 
-_STAFF_ROLES = frozenset({UserRole.ADMIN, UserRole.RECRUITER})
 
-
-def require_staff(user: CurrentUser) -> User:
-    """İşveren uçları: iş arayan (seeker) ilanlara, adaylara ve başvurulara erişemez."""
-    if user.role not in _STAFF_ROLES:
+def require_recruiter(user: CurrentUser) -> User:
+    """İşveren uçları yalnızca İK uzmanınındır; admin ve iş arayan 403 alır (yalıtım)."""
+    if user.role != UserRole.RECRUITER:
         raise PermissionDeniedError("Bu işlem için yetkiniz yok")
     return user
 
 
-StaffUser = Annotated[User, Depends(require_staff)]
+RecruiterUser = Annotated[User, Depends(require_recruiter)]
 
 
 def require_seeker(user: CurrentUser) -> User:

@@ -94,6 +94,6 @@ def test_seeded_status_changes_appear_in_history(
     ]
     assert changed, "tohum en az bir durum değişikliği üretmeli"
     for application in changed:
-        [change] = get_detail(db, application.id).status_history
+        [change] = get_detail(db, application.id, owner_id=admin.id).status_history
         assert (change.from_status, change.to_status) == (ApplicationStatus.NEW, application.status)
         assert change.actor_id == admin.id

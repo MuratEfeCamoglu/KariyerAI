@@ -47,7 +47,11 @@ def test_update_job_bumps_updated_at(db: Session, recruiter: User) -> None:
     before = job.updated_at
 
     result = jobs_service.update_job(
-        db, job_id=job.id, changes={"title": "Kıdemli Veri Analisti"}, actor_id=recruiter.id
+        db,
+        job_id=job.id,
+        changes={"title": "Kıdemli Veri Analisti"},
+        actor_id=recruiter.id,
+        owner_id=recruiter.id,
     )
 
     assert result.job.title == "Kıdemli Veri Analisti"
@@ -71,7 +75,9 @@ def test_criteria_changes_are_reported(
 ) -> None:
     job = jobs_service.create_job(db, data=_data(), actor_id=recruiter.id)
 
-    result = jobs_service.update_job(db, job_id=job.id, changes=changes, actor_id=recruiter.id)
+    result = jobs_service.update_job(
+        db, job_id=job.id, changes=changes, actor_id=recruiter.id, owner_id=recruiter.id
+    )
 
     assert result.criteria_changed is True
 
@@ -80,7 +86,11 @@ def test_unchanged_criteria_value_is_not_a_change(db: Session, recruiter: User) 
     job = jobs_service.create_job(db, data=_data(), actor_id=recruiter.id)
 
     result = jobs_service.update_job(
-        db, job_id=job.id, changes={"min_experience_years": 2}, actor_id=recruiter.id
+        db,
+        job_id=job.id,
+        changes={"min_experience_years": 2},
+        actor_id=recruiter.id,
+        owner_id=recruiter.id,
     )
 
     assert result.criteria_changed is False
@@ -88,7 +98,7 @@ def test_unchanged_criteria_value_is_not_a_change(db: Session, recruiter: User) 
 
 def test_get_job_raises_not_found(db: Session) -> None:
     with pytest.raises(NotFoundError):
-        jobs_service.get_job(db, 123)
+        jobs_service.get_job(db, 123, owner_id=1)
 
 
 def test_list_jobs_returns_empty_stats_until_applications_exist(
@@ -96,7 +106,7 @@ def test_list_jobs_returns_empty_stats_until_applications_exist(
 ) -> None:
     jobs_service.create_job(db, data=_data(), actor_id=recruiter.id)
 
-    [(job, stats)] = jobs_service.list_jobs(db)
+    [(job, stats)] = jobs_service.list_jobs(db, owner_id=recruiter.id)
 
     assert job.title == "Veri Analisti"
     assert stats == jobs_service.EMPTY_STATS
@@ -105,6 +115,6 @@ def test_list_jobs_returns_empty_stats_until_applications_exist(
 def test_delete_job_removes_row(db: Session, recruiter: User) -> None:
     job = jobs_service.create_job(db, data=_data(), actor_id=recruiter.id)
 
-    jobs_service.delete_job(db, job_id=job.id, actor_id=recruiter.id)
+    jobs_service.delete_job(db, job_id=job.id, actor_id=recruiter.id, owner_id=recruiter.id)
 
     assert db.get(Job, job.id) is None

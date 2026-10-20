@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.db import get_session_factory
-from app.core.deps import DbSession, StaffUser
+from app.core.deps import DbSession, RecruiterUser
 from app.models import ApplicationStatus, ProcessingStatus
 from app.models.job import Job
 from app.schemas.application import (
@@ -41,19 +41,19 @@ def _with_stats(job: Job, stats: JobStats) -> JobListItem:
 
 
 @router.get("")
-def list_jobs(_user: StaffUser, db: DbSession) -> list[JobListItem]:
-    return [_with_stats(job, stats) for job, stats in jobs_service.list_jobs(db)]
+def list_jobs(user: RecruiterUser, db: DbSession) -> list[JobListItem]:
+    return [_with_stats(job, stats) for job, stats in jobs_service.list_jobs(db, owner_id=user.id)]
 
 
 @router.post("", status_code=201)
-def create_job(body: JobCreate, user: StaffUser, db: DbSession) -> JobOut:
+def create_job(body: JobCreate, user: RecruiterUser, db: DbSession) -> JobOut:
     job = jobs_service.create_job(db, data=body.model_dump(), actor_id=user.id)
     return JobOut.model_validate(job)
 
 
 @router.get("/{job_id}")
-def get_job(job_id: int, _user: StaffUser, db: DbSession) -> JobListItem:
-    return _with_stats(*jobs_service.get_job_with_stats(db, job_id))
+def get_job(job_id: int, user: RecruiterUser, db: DbSession) -> JobListItem:
+    return _with_stats(*jobs_service.get_job_with_stats(db, job_id, owner_id=user.id))
 
 
 def _queue_rescore(
@@ -63,7 +63,9 @@ def _queue_rescore(
     background_tasks: BackgroundTasks,
     session_factory: sessionmaker[Session],
 ) -> list[int]:
-    ids = applications_service.mark_job_for_rescore(db, job_id, actor_id=actor_id)
+    ids = applications_service.mark_job_for_rescore(
+        db, job_id, actor_id=actor_id, owner_id=actor_id
+    )
     for application_id in ids:
         background_tasks.add_task(pipeline.process_application, application_id, session_factory)
     return ids
@@ -74,12 +76,16 @@ def update_job(
     job_id: int,
     body: JobUpdate,
     background_tasks: BackgroundTasks,
-    user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> JobOut:
     result = jobs_service.update_job(
-        db, job_id=job_id, changes=body.model_dump(exclude_unset=True), actor_id=user.id
+        db,
+        job_id=job_id,
+        changes=body.model_dump(exclude_unset=True),
+        actor_id=user.id,
+        owner_id=user.id,
     )
     if result.criteria_changed:
         _queue_rescore(db, job_id, user.id, background_tasks, session_factory)
@@ -90,11 +96,11 @@ def update_job(
 def rescore_job(
     job_id: int,
     background_tasks: BackgroundTasks,
-    user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> QueuedApplications:
-    jobs_service.get_job(db, job_id)
+    jobs_service.get_job(db, job_id, owner_id=user.id)
     ids = _queue_rescore(db, job_id, user.id, background_tasks, session_factory)
     return QueuedApplications(application_ids=ids)
 
@@ -102,7 +108,7 @@ def rescore_job(
 @router.get("/{job_id}/applications")
 def list_applications(
     job_id: int,
-    _user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     min_score: Annotated[int | None, Query(ge=0, le=100)] = None,
     status: Annotated[list[ApplicationStatus] | None, Query()] = None,
@@ -116,6 +122,7 @@ def list_applications(
             min_score=min_score, statuses=tuple(status or ()), parse_status=parse_status
         ),
         page=page,
+        owner_id=user.id,
     )
     items = []
     for row in result.rows:
@@ -153,8 +160,8 @@ def list_applications(
 
 
 @router.delete("/{job_id}", status_code=204)
-def delete_job(job_id: int, user: StaffUser, db: DbSession) -> None:
-    jobs_service.delete_job(db, job_id=job_id, actor_id=user.id)
+def delete_job(job_id: int, user: RecruiterUser, db: DbSession) -> None:
+    jobs_service.delete_job(db, job_id=job_id, actor_id=user.id, owner_id=user.id)
 
 
 @router.post(
@@ -167,7 +174,7 @@ def upload_cvs(
     job_id: int,
     files: Annotated[list[UploadFile], File(description="1–20 adet PDF/DOCX, her biri ≤ 5 MB")],
     background_tasks: BackgroundTasks,
-    user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     storage: Annotated[FileStorage, Depends(get_storage)],
     session_factory: SessionFactoryDep,
@@ -181,7 +188,7 @@ def upload_cvs(
         for file in files
     ]
     results = candidates_service.upload_cvs(
-        db, storage, job_id=job_id, files=incoming, actor_id=user.id
+        db, storage, job_id=job_id, files=incoming, actor_id=user.id, owner_id=user.id
     )
     payload = UploadResponse(
         application_ids=[r.application_id for r in results if r.application_id is not None],
