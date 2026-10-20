@@ -18,7 +18,8 @@ def get_current_user(
     user_id = decode_access_token(access_token) if access_token else None
     user = db.get(User, user_id) if user_id is not None else None
     # Pasifleştirilen kullanıcının elindeki token da hemen geçersiz olmalı (F2).
-    if user is None or not user.is_active:
+    # Onaylanmamış hesabın normalde token'ı olmaz; bu ikinci savunma hattıdır.
+    if user is None or not user.is_active or not user.is_approved:
         raise AuthenticationError("Oturum açmanız gerekiyor")
     return user
 
@@ -34,17 +35,15 @@ def require_admin(user: CurrentUser) -> User:
 
 AdminUser = Annotated[User, Depends(require_admin)]
 
-_STAFF_ROLES = frozenset({UserRole.ADMIN, UserRole.RECRUITER})
 
-
-def require_staff(user: CurrentUser) -> User:
-    """İşveren uçları: iş arayan (seeker) ilanlara, adaylara ve başvurulara erişemez."""
-    if user.role not in _STAFF_ROLES:
+def require_recruiter(user: CurrentUser) -> User:
+    """İşveren uçları yalnızca İK uzmanınındır; admin ve iş arayan 403 alır (yalıtım)."""
+    if user.role != UserRole.RECRUITER:
         raise PermissionDeniedError("Bu işlem için yetkiniz yok")
     return user
 
 
-StaffUser = Annotated[User, Depends(require_staff)]
+RecruiterUser = Annotated[User, Depends(require_recruiter)]
 
 
 def require_seeker(user: CurrentUser) -> User:

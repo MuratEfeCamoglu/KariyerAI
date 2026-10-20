@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, User
+from app.models import AuditLog, Job, User
+from app.models.job import EducationLevel, JobStatus
 from tests.conftest import RECRUITER_PASSWORD, LoginFn
 
 NEW_USER = {
@@ -143,6 +144,88 @@ def test_update_unknown_user_returns_404(admin_client: TestClient) -> None:
     assert response.status_code == 404
 
 
+# --- Onay akışı ---
+
+
+def test_list_users_includes_is_approved(
+    admin_client: TestClient, recruiter: User, pending_recruiter: User
+) -> None:
+    by_id = {u["id"]: u for u in admin_client.get("/api/users").json()}
+
+    assert by_id[recruiter.id]["is_approved"] is True
+    assert by_id[pending_recruiter.id]["is_approved"] is False
+
+
+def test_approve_pending_user(
+    admin_client: TestClient, pending_recruiter: User, db: Session, login: LoginFn
+) -> None:
+    response = admin_client.post(f"/api/users/{pending_recruiter.id}/approve")
+
+    assert response.status_code == 200
+    assert response.json()["is_approved"] is True
+    entry = db.scalars(select(AuditLog).where(AuditLog.action == "user.approve")).one()
+    assert entry.entity_id == pending_recruiter.id
+    assert entry.payload == {}
+    assert login(pending_recruiter.email, RECRUITER_PASSWORD) is not None
+
+
+def test_approve_already_approved_409(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.post(f"/api/users/{recruiter.id}/approve")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Hesap zaten onaylı"}
+
+
+def test_reject_pending_user(
+    admin_client: TestClient, pending_recruiter: User, db: Session
+) -> None:
+    user_id = pending_recruiter.id
+    email = pending_recruiter.email
+
+    response = admin_client.post(f"/api/users/{user_id}/reject")
+
+    assert response.status_code == 204
+    db.expire_all()
+    assert db.get(User, user_id) is None
+    entry = db.scalars(select(AuditLog).where(AuditLog.action == "user.reject")).one()
+    assert entry.entity_id == user_id
+    assert entry.payload == {}
+    again = admin_client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "full_name": "Deniz Bekler",
+            "password": "bekleyen-sifre-123",
+            "account_type": "recruiter",
+        },
+    )
+    assert again.status_code == 202
+
+
+def test_reject_approved_user_409(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.post(f"/api/users/{recruiter.id}/reject")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Yalnızca onay bekleyen hesaplar reddedilebilir"}
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_approve_reject_require_admin(
+    recruiter_client: TestClient, pending_recruiter: User, action: str
+) -> None:
+    response = recruiter_client.post(f"/api/users/{pending_recruiter.id}/{action}")
+
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_approve_reject_unknown_user_404(admin_client: TestClient, action: str) -> None:
+    response = admin_client.post(f"/api/users/9999/{action}")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Kullanıcı bulunamadı"}
+
+
 # --- Son aktif yöneticinin korunması ---
 
 
@@ -186,3 +269,48 @@ def test_other_admin_cannot_deactivate_last_active_admin(
 
     db.expire_all()
     assert second.patch(f"/api/users/{recruiter.id}", json={"role": "recruiter"}).status_code == 409
+
+
+def _add_job(db: Session, owner: User) -> None:
+    db.add(
+        Job(
+            title="Eski ilan",
+            required_skills=["Python"],
+            min_education=EducationLevel.NONE,
+            status=JobStatus.OPEN,
+            created_by=owner.id,
+        )
+    )
+    db.commit()
+
+
+def test_recruiter_with_jobs_cannot_change_role(
+    admin_client: TestClient, db: Session, recruiter: User
+) -> None:
+    _add_job(db, recruiter)
+
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "seeker"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "İlanı olan İK uzmanının rolü değiştirilemez; önce ilanları aktarın (transfer-jobs)"
+    )
+    db.refresh(recruiter)
+    assert recruiter.role.value == "recruiter"
+
+
+def test_recruiter_with_jobs_can_still_be_deactivated(
+    admin_client: TestClient, db: Session, recruiter: User
+) -> None:
+    _add_job(db, recruiter)
+
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"is_active": False})
+
+    assert response.status_code == 200
+
+
+def test_recruiter_without_jobs_role_change_ok(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.patch(f"/api/users/{recruiter.id}", json={"role": "seeker"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "seeker"

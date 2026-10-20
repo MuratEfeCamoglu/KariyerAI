@@ -3,9 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.core.deps import AdminUser, DbSession, StaffUser
+from app.core.deps import DbSession, RecruiterUser
 from app.core.errors import NotFoundError
-from app.models import Candidate
 from app.services import candidates as candidates_service
 from app.storage.files import FileStorage, get_storage
 
@@ -20,13 +19,11 @@ _MEDIA_TYPES = {
 @router.get("/{candidate_id}/cv")
 def download_cv(
     candidate_id: int,
-    _user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     storage: Annotated[FileStorage, Depends(get_storage)],
 ) -> FileResponse:
-    candidate = db.get(Candidate, candidate_id)
-    if candidate is None:
-        raise NotFoundError("Aday bulunamadı")
+    candidate = candidates_service.get_owned_candidate(db, candidate_id, owner_id=user.id)
     path = storage.path_for(candidate.stored_path)
     if not path.exists():
         raise NotFoundError("CV dosyası bulunamadı")
@@ -44,8 +41,10 @@ def download_cv(
 @router.delete("/{candidate_id}", status_code=204)
 def delete_candidate(
     candidate_id: int,
-    admin: AdminUser,
+    user: RecruiterUser,
     db: DbSession,
     storage: Annotated[FileStorage, Depends(get_storage)],
 ) -> None:
-    candidates_service.delete_candidate(db, storage, candidate_id=candidate_id, actor_id=admin.id)
+    candidates_service.delete_candidate(
+        db, storage, candidate_id=candidate_id, actor_id=user.id, owner_id=user.id
+    )

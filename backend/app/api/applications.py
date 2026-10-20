@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.db import get_session_factory
-from app.core.deps import DbSession, StaffUser
+from app.core.deps import DbSession, RecruiterUser
 from app.schemas.application import (
     ApplicationDetailOut,
     CandidateOut,
@@ -27,8 +27,8 @@ notes_router = APIRouter(prefix="/notes", tags=["notes"])
 SessionFactoryDep = Annotated[sessionmaker[Session], Depends(get_session_factory)]
 
 
-def _detail(db: Session, application_id: int) -> ApplicationDetailOut:
-    detail = applications_service.get_detail(db, application_id)
+def _detail(db: Session, application_id: int, owner_id: int) -> ApplicationDetailOut:
+    detail = applications_service.get_detail(db, application_id, owner_id=owner_id)
     application, candidate, job = detail.application, detail.candidate, detail.job
     return ApplicationDetailOut(
         id=application.id,
@@ -81,24 +81,26 @@ def _detail(db: Session, application_id: int) -> ApplicationDetailOut:
 
 
 @router.get("/{application_id}")
-def get_application(application_id: int, _user: StaffUser, db: DbSession) -> ApplicationDetailOut:
-    return _detail(db, application_id)
+def get_application(
+    application_id: int, user: RecruiterUser, db: DbSession
+) -> ApplicationDetailOut:
+    return _detail(db, application_id, user.id)
 
 
 @router.patch("/{application_id}/status")
 def change_status(
-    application_id: int, body: StatusUpdate, user: StaffUser, db: DbSession
+    application_id: int, body: StatusUpdate, user: RecruiterUser, db: DbSession
 ) -> ApplicationDetailOut:
     applications_service.change_status(
-        db, application_id=application_id, status=body.status, actor_id=user.id
+        db, application_id=application_id, status=body.status, actor_id=user.id, owner_id=user.id
     )
-    return _detail(db, application_id)
+    return _detail(db, application_id, user.id)
 
 
 @router.post("/{application_id}/notes", status_code=201)
-def add_note(application_id: int, body: NoteCreate, user: StaffUser, db: DbSession) -> NoteOut:
+def add_note(application_id: int, body: NoteCreate, user: RecruiterUser, db: DbSession) -> NoteOut:
     note = notes_service.add_note(
-        db, application_id=application_id, author_id=user.id, body=body.body
+        db, application_id=application_id, author_id=user.id, body=body.body, owner_id=user.id
     )
     return NoteOut(
         id=note.id,
@@ -113,15 +115,17 @@ def add_note(application_id: int, body: NoteCreate, user: StaffUser, db: DbSessi
 def retry_application(
     application_id: int,
     background_tasks: BackgroundTasks,
-    user: StaffUser,
+    user: RecruiterUser,
     db: DbSession,
     session_factory: SessionFactoryDep,
 ) -> QueuedApplications:
-    applications_service.retry_application(db, application_id=application_id, actor_id=user.id)
+    applications_service.retry_application(
+        db, application_id=application_id, actor_id=user.id, owner_id=user.id
+    )
     background_tasks.add_task(pipeline.process_application, application_id, session_factory)
     return QueuedApplications(application_ids=[application_id])
 
 
 @notes_router.delete("/{note_id}", status_code=204)
-def delete_note(note_id: int, user: StaffUser, db: DbSession) -> None:
-    notes_service.delete_note(db, note_id=note_id, actor_id=user.id)
+def delete_note(note_id: int, user: RecruiterUser, db: DbSession) -> None:
+    notes_service.delete_note(db, note_id=note_id, actor_id=user.id, owner_id=user.id)

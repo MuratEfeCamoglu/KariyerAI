@@ -61,10 +61,10 @@ def _filtered[*Ts](query: Select[*Ts], job_id: int, filters: ApplicationFilters)
 
 
 def list_applications(
-    db: Session, *, job_id: int, filters: ApplicationFilters, page: int
+    db: Session, *, job_id: int, filters: ApplicationFilters, page: int, owner_id: int
 ) -> ApplicationPage:
     """F7: puana göre azalan; puansızlar sonda; eşitlikte eskiden yeniye. 50 kayıt/sayfa."""
-    get_job(db, job_id)
+    get_job(db, job_id, owner_id=owner_id)
     base = select(Application, Candidate).join(Candidate, Candidate.id == Application.candidate_id)
     query = (
         _filtered(base, job_id, filters)
@@ -122,11 +122,14 @@ def last_position(parsed_data: dict[str, Any] | None) -> str | None:
     return str(latest.get("title")) if latest.get("title") else None
 
 
-def mark_job_for_rescore(db: Session, job_id: int, *, actor_id: int | None) -> list[int]:
+def mark_job_for_rescore(
+    db: Session, job_id: int, *, actor_id: int | None, owner_id: int
+) -> list[int]:
     """F6f: ayrıştırması tamamlanmış başvuruları yeniden puanlamaya alır; ayrıştırma tekrarlanmaz.
 
     Puanlaması sürmekte olanlar da "pending" yapılır; eski kriterlerle biten sonuç yazılmaz.
     """
+    get_job(db, job_id, owner_id=owner_id)
     applications = db.scalars(
         select(Application)
         .join(Candidate, Candidate.id == Application.candidate_id)
@@ -152,11 +155,9 @@ def mark_job_for_rescore(db: Session, job_id: int, *, actor_id: int | None) -> l
     return ids
 
 
-def retry_application(db: Session, *, application_id: int, actor_id: int) -> int:
+def retry_application(db: Session, *, application_id: int, actor_id: int, owner_id: int) -> int:
     """F7e: ayrıştırma başarısızsa yeniden ayrıştırma + puanlama, yalnızca puanlama ise puanlama."""
-    application = db.get(Application, application_id)
-    if application is None:
-        raise NotFoundError("Başvuru bulunamadı")
+    application = get_application(db, application_id, owner_id=owner_id)
     candidate = db.get(Candidate, application.candidate_id)
     assert candidate is not None
 
@@ -215,8 +216,12 @@ class ApplicationDetail:
     status_history: list[StatusChangeView]
 
 
-def get_application(db: Session, application_id: int) -> Application:
-    application = db.get(Application, application_id)
+def get_application(db: Session, application_id: int, *, owner_id: int) -> Application:
+    application = db.scalar(
+        select(Application)
+        .join(Job, Job.id == Application.job_id)
+        .where(Application.id == application_id, Job.created_by == owner_id)
+    )
     if application is None:
         raise NotFoundError("Başvuru bulunamadı")
     return application
@@ -245,9 +250,9 @@ def _status_history(db: Session, application_id: int) -> list[StatusChangeView]:
     ]
 
 
-def get_detail(db: Session, application_id: int) -> ApplicationDetail:
+def get_detail(db: Session, application_id: int, *, owner_id: int) -> ApplicationDetail:
     """F8: aday detayının tek sayfada gösterdiği her şey."""
-    application = get_application(db, application_id)
+    application = get_application(db, application_id, owner_id=owner_id)
     candidate = db.get(Candidate, application.candidate_id)
     job = db.get(Job, application.job_id)
     assert candidate is not None and job is not None
@@ -270,13 +275,13 @@ def get_detail(db: Session, application_id: int) -> ApplicationDetail:
 
 
 def change_status(
-    db: Session, *, application_id: int, status: ApplicationStatus, actor_id: int
+    db: Session, *, application_id: int, status: ApplicationStatus, actor_id: int, owner_id: int
 ) -> Application:
     """F9: her durumdan her duruma serbest geçiş; yalnızca kullanıcı isteğiyle çağrılır.
 
     Sistem (pipeline, puanlama) durumu hiçbir zaman değiştirmez — otomatik eleme yok (V1).
     """
-    application = get_application(db, application_id)
+    application = get_application(db, application_id, owner_id=owner_id)
     previous = application.status
     if previous is status:
         return application

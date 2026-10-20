@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
+import sqlalchemy as sa
 from sqlalchemy import Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,4 +25,5 @@ class User(Base):
         Enum(UserRole, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
     )
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_approved: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)

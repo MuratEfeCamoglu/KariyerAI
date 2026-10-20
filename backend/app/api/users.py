@@ -25,6 +25,17 @@ def create_user(body: UserCreate, admin: AdminUser, db: DbSession) -> UserOut:
     return UserOut.model_validate(user)
 
 
+@router.post("/{user_id}/approve")
+def approve_user(user_id: int, admin: AdminUser, db: DbSession) -> UserOut:
+    user = users_service.approve_user(db, user_id=user_id, actor_id=admin.id)
+    return UserOut.model_validate(user)
+
+
+@router.post("/{user_id}/reject", status_code=204)
+def reject_user(user_id: int, admin: AdminUser, db: DbSession) -> None:
+    users_service.reject_user(db, user_id=user_id, actor_id=admin.id)
+
+
 @router.patch("/{user_id}")
 def update_user(user_id: int, body: UserUpdate, admin: AdminUser, db: DbSession) -> UserOut:
     user = users_service.update_user(

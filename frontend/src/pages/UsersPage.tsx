@@ -1,4 +1,4 @@
-import { KeyRound, UserPlus } from "lucide-react";
+import { Check, KeyRound, UserPlus } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 
 import { ApiError, getFieldError } from "../api/client.ts";
@@ -7,8 +7,15 @@ import { Modal } from "../components/Modal.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { TextField } from "../components/TextField.tsx";
 import { useCurrentUser } from "../hooks/useAuth.ts";
-import { useCreateUser, useUpdateUser, useUsers } from "../hooks/useUsers.ts";
+import {
+  useApproveUser,
+  useCreateUser,
+  useRejectUser,
+  useUpdateUser,
+  useUsers,
+} from "../hooks/useUsers.ts";
 import { MIN_PASSWORD_LENGTH, ROLE_LABELS, ROLE_OPTIONS } from "../lib/constants.ts";
+import { formatDate } from "../lib/format.ts";
 import type { User, UserRole } from "../types/user.ts";
 
 function formError(error: unknown): string | null {
@@ -148,12 +155,64 @@ function SetPasswordModal({ user, onClose }: { user: User; onClose: () => void }
   );
 }
 
+function PendingUserRow({ user }: { user: User }) {
+  const approve = useApproveUser();
+  const reject = useRejectUser();
+  const [confirmingReject, setConfirmingReject] = useState(false);
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-ink">{user.full_name}</p>
+        <p className="text-sm text-ink-muted">{user.email}</p>
+        <p className="text-xs text-ink-subtle">Kayıt: {formatDate(user.created_at)}</p>
+        <ErrorBanner message={formError(approve.error ?? reject.error)} />
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          loading={approve.isPending}
+          onClick={() => {
+            approve.mutate(user.id);
+          }}
+        >
+          <Check size={16} strokeWidth={1.75} aria-hidden="true" />
+          Onayla
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={reject.isPending}
+          className={confirmingReject ? "text-danger" : undefined}
+          onBlur={() => {
+            setConfirmingReject(false);
+          }}
+          onClick={() => {
+            if (confirmingReject) {
+              reject.mutate(user.id, {
+                onError: () => {
+                  setConfirmingReject(false);
+                },
+              });
+            } else {
+              setConfirmingReject(true);
+            }
+          }}
+        >
+          {confirmingReject ? "Emin misiniz? Reddet" : "Reddet"}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 export function UsersPage() {
   const { data: currentUser } = useCurrentUser();
   const users = useUsers();
   const updateUser = useUpdateUser();
   const [creating, setCreating] = useState(false);
   const [passwordFor, setPasswordFor] = useState<User | null>(null);
+  const pendingUsers = users.data?.filter((user) => !user.is_approved) ?? [];
 
   return (
     <>
@@ -172,6 +231,20 @@ export function UsersPage() {
       />
 
       <ErrorBanner message={formError(updateUser.error)} />
+
+      {pendingUsers.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold text-ink">Onay bekleyenler</h2>
+          <ul
+            aria-label="Onay bekleyenler"
+            className="divide-y divide-line rounded-lg border border-line bg-surface shadow-xs"
+          >
+            {pendingUsers.map((user) => (
+              <PendingUserRow key={user.id} user={user} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-line bg-surface shadow-xs">
         {users.isPending ? (
@@ -192,77 +265,85 @@ export function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.data.map((user) => {
-                const isSelf = user.id === currentUser?.id;
-                return (
-                  <tr key={user.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 font-medium text-ink">
-                      {user.full_name}
-                      {isSelf && <span className="ml-2 text-xs text-ink-subtle">(siz)</span>}
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <select
-                        aria-label={`${user.full_name} rolü`}
-                        value={user.role}
-                        // Kendi rolünü düşüren admin bu sayfaya erişimini kaybeder.
-                        disabled={isSelf}
-                        onChange={(event) => {
-                          updateUser.mutate({
-                            id: user.id,
-                            body: { role: event.target.value as UserRole },
-                          });
-                        }}
-                        className="h-8 min-w-36 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
-                      >
-                        {ROLE_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            {ROLE_LABELS[option]}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={user.is_active}
-                        aria-label={`${user.full_name} aktif`}
-                        disabled={isSelf}
-                        title={isSelf ? "Kendi hesabınızı pasifleştiremezsiniz" : undefined}
-                        onClick={() => {
-                          updateUser.mutate({
-                            id: user.id,
-                            body: { is_active: !user.is_active },
-                          });
-                        }}
-                        className="inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span
-                          className={`relative h-5 w-9 rounded-full transition-colors ${user.is_active ? "bg-accent-500" : "bg-line-strong"}`}
+              {users.data
+                .filter((user) => user.is_approved)
+                .map((user) => {
+                  const isSelf = user.id === currentUser?.id;
+                  return (
+                    <tr key={user.id} className="border-b border-line last:border-0">
+                      <td className="px-4 py-3 font-medium text-ink">
+                        {user.full_name}
+                        {isSelf && <span className="ml-2 text-xs text-ink-subtle">(siz)</span>}
+                      </td>
+                      <td className="px-4 py-3 text-ink-muted">{user.email}</td>
+                      <td className="px-4 py-3">
+                        {user.role === "seeker" ? (
+                          <span className="text-ink-muted">{ROLE_LABELS.seeker}</span>
+                        ) : (
+                          <select
+                            aria-label={`${user.full_name} rolü`}
+                            value={user.role}
+                            // Kendi rolünü düşüren admin bu sayfaya erişimini kaybeder.
+                            disabled={isSelf}
+                            onChange={(event) => {
+                              updateUser.mutate({
+                                id: user.id,
+                                body: { role: event.target.value as UserRole },
+                              });
+                            }}
+                            className="h-8 min-w-36 rounded-md border border-line-strong bg-surface px-2 text-sm disabled:opacity-50"
+                          >
+                            {ROLE_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {ROLE_LABELS[option]}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={user.is_active}
+                          aria-label={`${user.full_name} aktif`}
+                          disabled={isSelf}
+                          title={isSelf ? "Kendi hesabınızı pasifleştiremezsiniz" : undefined}
+                          onClick={() => {
+                            updateUser.mutate({
+                              id: user.id,
+                              body: { is_active: !user.is_active },
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <span
-                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-xs transition-all ${user.is_active ? "left-4.5" : "left-0.5"}`}
-                          />
-                        </span>
-                        <span className="text-ink-muted">{user.is_active ? "Aktif" : "Pasif"}</span>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setPasswordFor(user);
-                        }}
-                      >
-                        <KeyRound size={16} strokeWidth={1.75} aria-hidden="true" />
-                        Şifre belirle
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
+                            className={`relative h-5 w-9 rounded-full transition-colors ${user.is_active ? "bg-accent-500" : "bg-line-strong"}`}
+                          >
+                            <span
+                              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-xs transition-all ${user.is_active ? "left-4.5" : "left-0.5"}`}
+                            />
+                          </span>
+                          <span className="text-ink-muted">
+                            {user.is_active ? "Aktif" : "Pasif"}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setPasswordFor(user);
+                          }}
+                        >
+                          <KeyRound size={16} strokeWidth={1.75} aria-hidden="true" />
+                          Şifre belirle
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         )}

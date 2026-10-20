@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-STAFF_ENDPOINTS = [
+EMPLOYER_ENDPOINTS = [
     ("GET", "/api/jobs"),
     ("POST", "/api/jobs"),
     ("GET", "/api/jobs/1"),
@@ -17,15 +17,27 @@ STAFF_ENDPOINTS = [
     ("DELETE", "/api/notes/1"),
     ("GET", "/api/candidates/1/cv"),
     ("DELETE", "/api/candidates/1"),
+]
+
+ADMIN_ENDPOINTS = [
     ("GET", "/api/users"),
     ("GET", "/api/audit"),
 ]
 
 
-@pytest.mark.parametrize(("method", "path"), STAFF_ENDPOINTS)
+@pytest.mark.parametrize(("method", "path"), EMPLOYER_ENDPOINTS + ADMIN_ENDPOINTS)
 def test_seeker_forbidden_on_staff_endpoints(
     seeker_client: TestClient, method: str, path: str
 ) -> None:
     response = seeker_client.request(method, path)
+
+    assert response.status_code == 403, response.text
+
+
+@pytest.mark.parametrize(("method", "path"), EMPLOYER_ENDPOINTS)
+def test_admin_forbidden_on_employer_endpoints(
+    admin_client: TestClient, method: str, path: str
+) -> None:
+    response = admin_client.request(method, path)
 
     assert response.status_code == 403, response.text

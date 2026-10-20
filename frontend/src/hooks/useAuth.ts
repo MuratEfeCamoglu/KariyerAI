@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getMe, login, logout, register } from "../api/auth.ts";
+import { isPendingApproval } from "../types/user.ts";
 
 export const authKeys = {
   me: ["auth", "me"] as const,
@@ -24,8 +25,11 @@ export function useRegister() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: register,
-    onSuccess: (user) => {
-      queryClient.setQueryData(authKeys.me, user);
+    onSuccess: (result) => {
+      // İK kaydı oturum açmaz; yalnızca iş arayan hesabı oturuma alınır.
+      if (!isPendingApproval(result)) {
+        queryClient.setQueryData(authKeys.me, result);
+      }
     },
   });
 }

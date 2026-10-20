@@ -1,11 +1,18 @@
 import hashlib
 from dataclasses import dataclass
+from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, FieldValidationError, NotFoundError
-from app.models import Application, Candidate, JobStatus, ProcessingStatus
+from app.core.db import utc_now
+from app.core.errors import (
+    ConflictError,
+    FieldValidationError,
+    NotFoundError,
+    TooManyRequestsError,
+)
+from app.models import Application, Candidate, Job, JobStatus, ProcessingStatus
 from app.services import audit
 from app.services.cv_extract import (
     MAX_FILE_BYTES,
@@ -19,6 +26,9 @@ from app.services.pipeline import PARSE_FAILED
 from app.storage.files import FileStorage
 
 MAX_FILES_PER_UPLOAD = 20
+# LLM kotasını tek bir İK hesabının tüketmesini önler (kayan 24 saat, işveren başına).
+DAILY_CV_LIMIT = 100
+_LIMIT_WINDOW = timedelta(hours=24)
 
 DUPLICATE_CV = "Bu CV bu ilana zaten yüklendi"
 TOO_LARGE = "Dosya 5 MB'tan büyük"
@@ -63,6 +73,20 @@ def _existing_hashes(db: Session, job_id: int, hashes: set[str]) -> set[str]:
     )
 
 
+def _check_daily_limit(db: Session, owner_id: int, incoming: int) -> None:
+    recent = db.scalar(
+        select(func.count(Candidate.id))
+        .join(Application, Application.candidate_id == Candidate.id)
+        .join(Job, Job.id == Application.job_id)
+        .where(Job.created_by == owner_id, Candidate.created_at >= utc_now() - _LIMIT_WINDOW)
+    )
+    remaining = max(0, DAILY_CV_LIMIT - (recent or 0))
+    if incoming > remaining:
+        raise TooManyRequestsError(
+            f"Günlük CV sınırına ulaştınız ({DAILY_CV_LIMIT}). Kalan hakkınız: {remaining}."
+        )
+
+
 def upload_cvs(
     db: Session,
     storage: FileStorage,
@@ -70,13 +94,14 @@ def upload_cvs(
     job_id: int,
     files: list[IncomingFile],
     actor_id: int,
+    owner_id: int,
 ) -> list[FileResult]:
     """F4: dosyaları doğrular, saklar, metni çıkarır ve aday + başvuru oluşturur.
 
     Geçersiz dosya yalnızca kendisi reddedilir; diğerleri işlenir (F4b). Ayrıştırma arka
     planda yapılır; dönen başvuruların pipeline'a verilmesi çağıranın işidir.
     """
-    job = get_job(db, job_id)
+    job = get_job(db, job_id, owner_id=owner_id)
     if job.status is JobStatus.CLOSED:
         raise ConflictError("Kapalı ilana CV yüklenemez")
     if not files:
@@ -85,6 +110,7 @@ def upload_cvs(
         raise FieldValidationError(
             "files", f"Tek seferde en fazla {MAX_FILES_PER_UPLOAD} dosya yüklenebilir"
         )
+    _check_daily_limit(db, owner_id, len(files))
 
     hashes = {hashlib.sha256(file.data).hexdigest() for file in files}
     seen_hashes = _existing_hashes(db, job_id, hashes)
@@ -166,17 +192,28 @@ def upload_cvs(
     return results
 
 
+def get_owned_candidate(db: Session, candidate_id: int, *, owner_id: int) -> Candidate:
+    # Aday yalnızca ilanı sahibine ait bir başvuru üzerinden erişilebilir.
+    candidate = db.scalar(
+        select(Candidate)
+        .join(Application, Application.candidate_id == Candidate.id)
+        .join(Job, Job.id == Application.job_id)
+        .where(Candidate.id == candidate_id, Job.created_by == owner_id)
+    )
+    if candidate is None:
+        raise NotFoundError("Aday bulunamadı")
+    return candidate
+
+
 def delete_candidate(
-    db: Session, storage: FileStorage, *, candidate_id: int, actor_id: int
+    db: Session, storage: FileStorage, *, candidate_id: int, actor_id: int, owner_id: int
 ) -> None:
     """F11 (KVKK): aday kaydı, tüm başvuruları, notları ve CV dosyası kalıcı olarak silinir.
 
     Başvurular ve notlar veritabanında ON DELETE CASCADE ile silinir. Audit kaydına yalnızca
     "aday #id silindi" yazılır; ad, e-posta, dosya adı gibi kişisel veri yazılmaz.
     """
-    candidate = db.get(Candidate, candidate_id)
-    if candidate is None:
-        raise NotFoundError("Aday bulunamadı")
+    candidate = get_owned_candidate(db, candidate_id, owner_id=owner_id)
     stored_path = candidate.stored_path
     db.delete(candidate)
     audit.record(

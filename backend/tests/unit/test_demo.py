@@ -54,7 +54,7 @@ def test_seed_demo_creates_scored_applications_with_files(
     assert candidate.full_name in extract_text(stored, FileKind.DOCX)
 
 
-def test_cli_seed_demo_requires_admin(
+def test_cli_seed_demo_requires_recruiter(
     monkeypatch: pytest.MonkeyPatch,
     session_factory: sessionmaker[Session],
     capsys: pytest.CaptureFixture[str],
@@ -62,14 +62,14 @@ def test_cli_seed_demo_requires_admin(
     monkeypatch.setattr(cli, "SessionLocal", session_factory)
 
     assert cli.main(["seed-demo"]) == 1
-    assert "create-admin" in capsys.readouterr().err
+    assert "Önce bir İK hesabı oluşturun" in capsys.readouterr().err
 
 
 def test_cli_seed_demo_with_applications_option(
     monkeypatch: pytest.MonkeyPatch,
     session_factory: sessionmaker[Session],
     storage: FileStorage,
-    admin: User,
+    recruiter: User,
     db: Session,
 ) -> None:
     monkeypatch.setattr(cli, "SessionLocal", session_factory)
@@ -94,6 +94,6 @@ def test_seeded_status_changes_appear_in_history(
     ]
     assert changed, "tohum en az bir durum değişikliği üretmeli"
     for application in changed:
-        [change] = get_detail(db, application.id).status_history
+        [change] = get_detail(db, application.id, owner_id=admin.id).status_history
         assert (change.from_status, change.to_status) == (ApplicationStatus.NEW, application.status)
         assert change.actor_id == admin.id

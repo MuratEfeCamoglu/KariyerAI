@@ -14,6 +14,21 @@ describe("LoginPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it("İK kaydı bilgisini ve nötr kayıt bağlantısını gösterir", async () => {
+    mockApi((_method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "x" });
+      return undefined;
+    });
+    renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    expect(
+      screen.getByText("İK uzmanları da kaydolabilir; hesaplar yönetici onayıyla açılır."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Hesabın yok mu\?/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Kayıt ol" })).toBeInTheDocument();
+  });
+
   it("başarılı girişte ilanlar sayfasına yönlendirir", async () => {
     let loggedIn = false;
     const fetchMock = mockApi((method, path) => {
@@ -84,5 +99,21 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: /şifre/i })).not.toBeInTheDocument();
     });
+  });
+
+  it("onay bekleyen İK hesabında sunucunun 403 mesajını gösterir", async () => {
+    mockApi((method, path) => {
+      if (path === "/auth/me") return jsonResponse(401, { detail: "x" });
+      if (method === "POST" && path === "/auth/login") {
+        return jsonResponse(403, { detail: "Hesabınız yönetici onayı bekliyor" });
+      }
+      return undefined;
+    });
+    renderRoute("/login");
+
+    await screen.findByRole("heading", { name: "Giriş yap" });
+    fillAndSubmit("ik@example.com", "dogru-sifre-123");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hesabınız yönetici onayı bekliyor");
   });
 });

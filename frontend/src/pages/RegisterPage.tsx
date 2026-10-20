@@ -6,14 +6,21 @@ import { Button } from "../components/Button.tsx";
 import { TextField } from "../components/TextField.tsx";
 import { useCurrentUser, useRegister } from "../hooks/useAuth.ts";
 import { homePathFor, MIN_PASSWORD_LENGTH } from "../lib/constants.ts";
+import { isPendingApproval, type AccountType } from "../types/user.ts";
 
-/** Herkese açık kayıt; açılan hesap her zaman iş arayan hesabıdır. */
+const ACCOUNT_TYPE_OPTIONS: { value: AccountType; label: string }[] = [
+  { value: "seeker", label: "İş arıyorum" },
+  { value: "recruiter", label: "İşe alım yapıyorum" },
+];
+
+/** Herkese açık kayıt; İK hesabı yönetici onayına düşer, iş arayan hesabı hemen açılır. */
 export function RegisterPage() {
   const { data: user } = useCurrentUser();
   const register = useRegister();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("seeker");
 
   if (user) {
     return <Navigate to={homePathFor(user.role)} replace />;
@@ -21,8 +28,32 @@ export function RegisterPage() {
 
   const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    register.mutate({ full_name: fullName.trim(), email: email.trim(), password });
+    register.mutate({
+      full_name: fullName.trim(),
+      email: email.trim(),
+      password,
+      account_type: accountType,
+    });
   };
+
+  if (register.data && isPendingApproval(register.data)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-canvas p-8">
+        <div className="w-full max-w-sm">
+          <p className="text-lg font-semibold text-brand-700">KariyerAI</p>
+          <h1 className="mt-6 text-2xl font-semibold text-ink">Başvurunuz alındı</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Başvurunuz alındı. Yönetici onayladıktan sonra giriş yapabilirsiniz.
+          </p>
+          <p className="mt-6 text-sm">
+            <Link to="/login" className="font-medium text-accent-700 hover:underline">
+              Giriş yap
+            </Link>
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const error = register.error;
   const summary =
@@ -50,6 +81,25 @@ export function RegisterPage() {
               {summary}
             </div>
           )}
+          <fieldset>
+            <legend className="mb-1 text-sm font-medium text-ink">Hesap türü</legend>
+            <div className="space-y-1">
+              {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                <label key={option.value} className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="radio"
+                    name="account_type"
+                    value={option.value}
+                    checked={accountType === option.value}
+                    onChange={() => {
+                      setAccountType(option.value);
+                    }}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <TextField
             label="Ad soyad"
             autoComplete="name"

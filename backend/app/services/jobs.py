@@ -60,19 +60,22 @@ def _stats_by_job(db: Session, job_ids: list[int]) -> dict[int, JobStats]:
     }
 
 
-def list_jobs(db: Session) -> list[tuple[Job, JobStats]]:
-    jobs = db.scalars(select(Job).order_by(Job.created_at.desc(), Job.id.desc())).all()
+def list_jobs(db: Session, *, owner_id: int) -> list[tuple[Job, JobStats]]:
+    jobs = db.scalars(
+        select(Job).where(Job.created_by == owner_id).order_by(Job.created_at.desc(), Job.id.desc())
+    ).all()
     stats = _stats_by_job(db, [job.id for job in jobs])
     return [(job, stats.get(job.id, EMPTY_STATS)) for job in jobs]
 
 
-def get_job_with_stats(db: Session, job_id: int) -> tuple[Job, JobStats]:
-    job = get_job(db, job_id)
+def get_job_with_stats(db: Session, job_id: int, *, owner_id: int) -> tuple[Job, JobStats]:
+    job = get_job(db, job_id, owner_id=owner_id)
     return job, _stats_by_job(db, [job_id]).get(job_id, EMPTY_STATS)
 
 
-def get_job(db: Session, job_id: int) -> Job:
-    job = db.get(Job, job_id)
+def get_job(db: Session, job_id: int, *, owner_id: int) -> Job:
+    # Başkasının ilanı ile olmayan ilan aynı 404'ü verir: varlığı sızdırılmaz.
+    job = db.scalar(select(Job).where(Job.id == job_id, Job.created_by == owner_id))
     if job is None:
         raise NotFoundError("İlan bulunamadı")
     return job
@@ -103,9 +106,9 @@ class JobUpdateResult:
 
 
 def update_job(
-    db: Session, *, job_id: int, changes: dict[str, Any], actor_id: int
+    db: Session, *, job_id: int, changes: dict[str, Any], actor_id: int, owner_id: int
 ) -> JobUpdateResult:
-    job = get_job(db, job_id)
+    job = get_job(db, job_id, owner_id=owner_id)
     _check_skill_overlap(
         changes.get("required_skills", job.required_skills),
         changes.get("preferred_skills", job.preferred_skills),
@@ -130,8 +133,25 @@ def update_job(
     return JobUpdateResult(job=job, criteria_changed=bool(CRITERIA_FIELDS & set(changed_fields)))
 
 
-def delete_job(db: Session, *, job_id: int, actor_id: int) -> None:
-    job = get_job(db, job_id)
+def transfer_jobs(db: Session, *, from_user_id: int, to_user_id: int) -> int:
+    """Bir kullanıcının tüm ilanlarını başka bir İK uzmanına devreder; devredilen sayıyı döner."""
+    jobs = list(db.scalars(select(Job).where(Job.created_by == from_user_id).order_by(Job.id)))
+    for job in jobs:
+        job.created_by = to_user_id
+        audit.record(
+            db,
+            actor_id=None,
+            action="job.transfer",
+            entity_type="job",
+            entity_id=job.id,
+            payload={"from_user_id": from_user_id, "to_user_id": to_user_id},
+        )
+    db.commit()
+    return len(jobs)
+
+
+def delete_job(db: Session, *, job_id: int, actor_id: int, owner_id: int) -> None:
+    job = get_job(db, job_id, owner_id=owner_id)
     if db.scalar(select(Application.id).where(Application.job_id == job_id).limit(1)) is not None:
         raise ConflictError("Başvurusu olan ilan silinemez; bunun yerine ilanı kapatabilirsiniz")
     db.delete(job)

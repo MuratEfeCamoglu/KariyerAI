@@ -1,12 +1,13 @@
 import { Navigate, Outlet } from "react-router";
 
 import { useCurrentUser } from "../hooks/useAuth.ts";
+import { homePathFor } from "../lib/constants.ts";
 
-/** RequireAuth'un içinde kullanılır; işveren kullanıcıları iş arayan sayfalarına giremez. */
+/** RequireAuth'un içinde kullanılır; işveren tarafı kullanıcıları iş arayan sayfalarına giremez. */
 export function RequireSeeker() {
   const { data: user } = useCurrentUser();
-  if (user?.role !== "seeker") {
-    return <Navigate to="/jobs" replace />;
+  if (user && user.role !== "seeker") {
+    return <Navigate to={homePathFor(user.role)} replace />;
   }
   return <Outlet />;
 }

@@ -128,7 +128,7 @@ export function ApplicationDetailPage() {
               {statusError}
             </p>
           )}
-          {currentUser?.role === "admin" && (
+          {currentUser?.role === "recruiter" && (
             <Button
               variant="ghost"
               size="sm"
