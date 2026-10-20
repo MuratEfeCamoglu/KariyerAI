@@ -18,7 +18,8 @@ def get_current_user(
     user_id = decode_access_token(access_token) if access_token else None
     user = db.get(User, user_id) if user_id is not None else None
     # Pasifleştirilen kullanıcının elindeki token da hemen geçersiz olmalı (F2).
-    if user is None or not user.is_active:
+    # Onaylanmamış hesabın normalde token'ı olmaz; bu ikinci savunma hattıdır.
+    if user is None or not user.is_active or not user.is_approved:
         raise AuthenticationError("Oturum açmanız gerekiyor")
     return user
 

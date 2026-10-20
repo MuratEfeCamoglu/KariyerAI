@@ -108,6 +108,19 @@ def recruiter(db: Session) -> User:
 
 
 @pytest.fixture
+def pending_recruiter(db: Session) -> User:
+    return users_service.create_user(
+        db,
+        email="bekleyen@example.com",
+        full_name="Deniz Bekler",
+        password=RECRUITER_PASSWORD,
+        role=UserRole.RECRUITER,
+        actor_id=None,
+        is_approved=False,
+    )
+
+
+@pytest.fixture
 def seeker(db: Session) -> User:
     return users_service.create_user(
         db,

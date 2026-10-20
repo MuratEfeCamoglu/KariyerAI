@@ -143,6 +143,88 @@ def test_update_unknown_user_returns_404(admin_client: TestClient) -> None:
     assert response.status_code == 404
 
 
+# --- Onay akışı ---
+
+
+def test_list_users_includes_is_approved(
+    admin_client: TestClient, recruiter: User, pending_recruiter: User
+) -> None:
+    by_id = {u["id"]: u for u in admin_client.get("/api/users").json()}
+
+    assert by_id[recruiter.id]["is_approved"] is True
+    assert by_id[pending_recruiter.id]["is_approved"] is False
+
+
+def test_approve_pending_user(
+    admin_client: TestClient, pending_recruiter: User, db: Session, login: LoginFn
+) -> None:
+    response = admin_client.post(f"/api/users/{pending_recruiter.id}/approve")
+
+    assert response.status_code == 200
+    assert response.json()["is_approved"] is True
+    entry = db.scalars(select(AuditLog).where(AuditLog.action == "user.approve")).one()
+    assert entry.entity_id == pending_recruiter.id
+    assert entry.payload == {}
+    assert login(pending_recruiter.email, RECRUITER_PASSWORD) is not None
+
+
+def test_approve_already_approved_409(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.post(f"/api/users/{recruiter.id}/approve")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Hesap zaten onaylı"}
+
+
+def test_reject_pending_user(
+    admin_client: TestClient, pending_recruiter: User, db: Session
+) -> None:
+    user_id = pending_recruiter.id
+    email = pending_recruiter.email
+
+    response = admin_client.post(f"/api/users/{user_id}/reject")
+
+    assert response.status_code == 204
+    db.expire_all()
+    assert db.get(User, user_id) is None
+    entry = db.scalars(select(AuditLog).where(AuditLog.action == "user.reject")).one()
+    assert entry.entity_id == user_id
+    assert entry.payload == {}
+    again = admin_client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "full_name": "Deniz Bekler",
+            "password": "bekleyen-sifre-123",
+            "account_type": "recruiter",
+        },
+    )
+    assert again.status_code == 202
+
+
+def test_reject_approved_user_409(admin_client: TestClient, recruiter: User) -> None:
+    response = admin_client.post(f"/api/users/{recruiter.id}/reject")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Yalnızca onay bekleyen hesaplar reddedilebilir"}
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_approve_reject_require_admin(
+    recruiter_client: TestClient, pending_recruiter: User, action: str
+) -> None:
+    response = recruiter_client.post(f"/api/users/{pending_recruiter.id}/{action}")
+
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_approve_reject_unknown_user_404(admin_client: TestClient, action: str) -> None:
+    response = admin_client.post(f"/api/users/9999/{action}")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Kullanıcı bulunamadı"}
+
+
 # --- Son aktif yöneticinin korunması ---
 
 

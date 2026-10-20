@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    is_approved: bool
     created_at: datetime
 
 

@@ -19,6 +19,7 @@ def create_user(
     password: str,
     role: UserRole,
     actor_id: int | None,
+    is_approved: bool = True,
 ) -> User:
     normalized_email = email.lower()
     if db.scalar(select(User.id).where(User.email == normalized_email)) is not None:
@@ -30,6 +31,7 @@ def create_user(
         password_hash=hash_password(password),
         role=role,
         is_active=True,
+        is_approved=is_approved,
     )
     db.add(user)
     db.flush()
@@ -43,6 +45,44 @@ def create_user(
     )
     db.commit()
     return user
+
+
+def approve_user(db: Session, *, user_id: int, actor_id: int) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("Kullanıcı bulunamadı")
+    if user.is_approved:
+        raise ConflictError("Hesap zaten onaylı")
+    user.is_approved = True
+    audit.record(
+        db,
+        actor_id=actor_id,
+        action="user.approve",
+        entity_type="user",
+        entity_id=user.id,
+        payload={},
+    )
+    db.commit()
+    return user
+
+
+def reject_user(db: Session, *, user_id: int, actor_id: int) -> None:
+    user = db.get(User, user_id)
+    if user is None:
+        raise NotFoundError("Kullanıcı bulunamadı")
+    if user.is_approved:
+        raise ConflictError("Yalnızca onay bekleyen hesaplar reddedilebilir")
+    # Reddedilen kayıt silinir: kişisel veri tutulmaz, aynı e-posta yeniden başvurabilir.
+    db.delete(user)
+    audit.record(
+        db,
+        actor_id=actor_id,
+        action="user.reject",
+        entity_type="user",
+        entity_id=user_id,
+        payload={},
+    )
+    db.commit()
 
 
 def update_user(

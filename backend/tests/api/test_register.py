@@ -23,6 +23,28 @@ def test_register_creates_seeker_and_sets_cookie(client: TestClient) -> None:
     assert client.get("/api/auth/me").json()["email"] == "yeni@example.com"
 
 
+def test_register_recruiter_is_pending(client: TestClient, db: Session) -> None:
+    response = _register(client, account_type="recruiter")
+
+    assert response.status_code == 202
+    assert response.json() == {"status": "pending_approval"}
+    assert AUTH_COOKIE_NAME not in response.cookies
+    user = db.scalar(select(User).where(User.email == "yeni@example.com"))
+    assert user is not None
+    assert user.role is UserRole.RECRUITER
+    assert user.is_approved is False
+
+
+def test_register_default_is_seeker(client: TestClient, db: Session) -> None:
+    response = _register(client)
+
+    assert response.status_code == 201
+    user = db.scalar(select(User).where(User.email == "yeni@example.com"))
+    assert user is not None
+    assert user.role is UserRole.SEEKER
+    assert user.is_approved is True
+
+
 def test_register_ignores_role_field(client: TestClient, db: Session) -> None:
     response = _register(client, role="admin")
 

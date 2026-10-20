@@ -67,6 +67,45 @@ def test_more_than_10_failed_logins_per_minute_returns_429(client: TestClient, a
     assert "detail" in blocked.json()
 
 
+def test_pending_login_correct_password_403(client: TestClient, pending_recruiter: User) -> None:
+    response = client.post(
+        "/api/auth/login", json={"email": pending_recruiter.email, "password": RECRUITER_PASSWORD}
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Hesabınız yönetici onayı bekliyor"}
+    assert AUTH_COOKIE_NAME not in response.cookies
+
+
+def test_pending_login_wrong_password_401(client: TestClient, pending_recruiter: User) -> None:
+    response = client.post(
+        "/api/auth/login", json={"email": pending_recruiter.email, "password": "yanlis-sifre-123"}
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "E-posta veya şifre hatalı"}
+
+
+def test_pending_login_does_not_count_as_failure(
+    client: TestClient, pending_recruiter: User
+) -> None:
+    for _ in range(12):
+        response = client.post(
+            "/api/auth/login",
+            json={"email": pending_recruiter.email, "password": RECRUITER_PASSWORD},
+        )
+        assert response.status_code == 403
+
+
+def test_unapproved_token_rejected(
+    recruiter_client: TestClient, recruiter: User, db: Session
+) -> None:
+    recruiter.is_approved = False
+    db.commit()
+
+    assert recruiter_client.get("/api/auth/me").status_code == 401
+
+
 def test_me_requires_session(client: TestClient) -> None:
     response = client.get("/api/auth/me")
 
